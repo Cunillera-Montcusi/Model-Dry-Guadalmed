@@ -4,7 +4,7 @@ library(doParallel)
 registerDoParallel(cores = detectCores())
 
 lost_scenarios <- foreach(loss=1:length(habitat_lost), .combine=rbind)%:%
-  foreach(dispersal=1:length(dispersal_distances), .combine=rbind)%dopar% {
+  foreach(dispersal=1:length(dispersal_distances), .combine=rbind)%dopar%{
     # Scenarios of loss
     Perc_Hab_Loss <- habitat_lost[loss]
     FW_area_lost <- FW_area-(Perc_Hab_Loss*FW_area)

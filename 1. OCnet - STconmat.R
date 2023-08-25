@@ -57,7 +57,7 @@ ggplot()+
 edges_DaFr
 nodes_DaFr
 
-# 2. DRYING DATA BASE FOR STcon
+# 2. DRYING DATA BASE FOR STcon  ####
 
 # 10 years 
 # 12 months 
@@ -93,7 +93,7 @@ Flow_DB[,Streams_5_month_dry] <- FIVE_month_dry
 plot(apply(Flow_DB[,2:ncol(Flow_DB)],2,sum),nodes_DaFr$weight)
   
 
-# 3. STconmat calculation
+# 3. STconmat calculation  ####
 # Remember that STcon is able to calculate several rivers at the same time! So you just need to have a list object with the 3 elements 
 # for each river scenario: 
 
