@@ -6,7 +6,7 @@ library(OCNet)
 # With the following function we create a river of a determined size and charactersitics: 
 # Cellsize sets the size of each cell (pixels) -- We can use this as a proxy of "community size"
 # expEnergy is defining the "branching" of the river in accordance with the size
-ocn_TEST <- create_OCN(dimX = 40,dimY = 30,nOutlet = 1,cellsize = 10, expEnergy=100)
+ocn_TEST <- create_OCN(dimX = 40,dimY = 30,nOutlet = 1,cellsize = 1, expEnergy=0.02)
 # Easy function to draw the river
 draw_simple_OCN(ocn_TEST)
 # FD$A defines the size (area actually) of each cell based on each position in the stream (order of the reach)
