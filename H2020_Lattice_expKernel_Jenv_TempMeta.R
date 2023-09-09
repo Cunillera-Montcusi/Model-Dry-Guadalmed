@@ -24,7 +24,7 @@ output <- out_Metat0
 output
 
 if(temp_it>0){
-  for (temporal_it in 1:temp_it) {
+for (temporal_it in 1:temp_it) {
 cat("coalescent iteration", temporal_it," de" ,temp_it )
     
     out_Metatn<- H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom(
@@ -174,14 +174,8 @@ H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom<-function(Meta.pool, m.pool,
           #"B.loc.intra.module"=Bett.intra,
           #"B.loc.inter.module"=Bett.inter,
           "G"=length(which(apply(ifelse(Meta[,id.obs]>0,1,0),1,sum)>1)),
-          "G_purg"=length(which(apply(ifelse(Meta[which(ifelse(apply(Meta[,id.obs],1,sum)<(sum(Js)*0.01),0,1)==1),
-                                         id.obs]>0,1,0),1,sum)>1)),
           "simp"=diversity(apply(Meta[,id.obs],1,sum),"simpson"),
-          "simp_purg"=diversity(apply(Meta[which(ifelse(apply(Meta[,id.obs],1,sum)<(sum(Js)*0.01),0,1)==1),
-                                           id.obs],1,sum),"simpson"),
           "inv.simp"=diversity(apply(Meta[,id.obs],1,sum), "invsimpson"),
-          "inv.simp_purg"=diversity(apply(Meta[which(ifelse(apply(Meta[,id.obs],1,sum)<(sum(Js)*0.01),0,1)==1),
-                                               id.obs],1,sum), "invsimpson")
           ),
           "MetaCom"=MetaCom_t) 
   Meta
