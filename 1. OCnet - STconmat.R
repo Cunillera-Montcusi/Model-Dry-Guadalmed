@@ -6,7 +6,7 @@ library(OCNet)
 # With the following function we create a river of a determined size and charactersitics: 
 # Cellsize sets the size of each cell (pixels) -- We can use this as a proxy of "community size"
 # expEnergy is defining the "branching" of the river in accordance with the size
-ocn_TEST <- create_OCN(dimX = 40,dimY = 30,nOutlet = 1,cellsize = 1, expEnergy=0.02)
+ocn_TEST <- create_OCN(dimX = 40,dimY = 30,nOutlet = 1,cellsize = 2, expEnergy=0.5)
 # Easy function to draw the river
 draw_simple_OCN(ocn_TEST)
 # FD$A defines the size (area actually) of each cell based on each position in the stream (order of the reach)
@@ -64,9 +64,7 @@ nodes_DaFr
 # 3 dry months
 Flow_DB <- matrix(nrow = 12*10, ncol =nrow(nodes_DaFr)+1, data = 1)
 # Month ID
-Flow_DB[,1] <- seq(1:(12*10))
-# Need of colnames for the matrix
-colnames(Flow_DB) <- c("Site_ID",as.character(seq(1,nrow(nodes_DaFr),1)))
+Flow_DB[,ncol(Flow_DB)] <- seq(1:(12*10))
 
 # In this case we assign drying according to weight (order/community size) so we take a look
 summary(nodes_DaFr$weight)
@@ -76,22 +74,55 @@ summary(nodes_DaFr$weight)
 
 # We select those streams that will dry 3 months
 THREE_month_dry <- rep(c(1,1,1,1,1,0,0,0,1,1,1,1),10) # We create an anual pattern of drying
-Streams_3_month_dry <- sample(which(nodes_DaFr$weight>200 & nodes_DaFr$weight<1000),
-       size = length(which(nodes_DaFr$weight>200 & nodes_DaFr$weight<1000))*0.7, # Randomly 70% of streams
+# We select the nodes under a determined criteria (in the example those between half the mean and the mean)
+THREE_streams <- which(nodes_DaFr$weight>(summary(nodes_DaFr$weight)[4]/2)
+                        &
+                       nodes_DaFr$weight<summary(nodes_DaFr$weight)[4])
+
+#Randomly select a part of these streams 
+Streams_3_month_dry <- sample(THREE_streams,
+       size = length(THREE_streams)*0.7, # Randomly 70% of streams
        replace = F) # We randomly select which sites suffer this drying pattern
 
+# We add the drying month pattern to the selected streams
 Flow_DB[,Streams_3_month_dry] <- THREE_month_dry
+
+# COMMENT_______________
+### We repeat the same for another criteria
 
 # We select those streams that will dry 5 months per year
 FIVE_month_dry <- rep(c(1,1,1,1,0,0,0,0,0,1,1,1),10) # We create an anual pattern of drying
-Streams_5_month_dry <- sample(which(nodes_DaFr$weight<101),
-                       size = length(which(nodes_DaFr$weight<101))*0.7, # Randomly 70% of streams
+# We select the nodes under a determined criteria (in the example those below the half of the mean weight)
+FIVE_streams <- which(nodes_DaFr$weight<(summary(nodes_DaFr$weight)[4]/2))
+#Randomly select a part of these streams 
+Streams_5_month_dry <- sample(FIVE_streams,
+                       size = length(FIVE_streams)*0.7, # Randomly 70% of streams
                        replace = F) # We randomly select which sites suffer this drying pattern
+# We add the drying month pattern to the selected streams
 Flow_DB[,Streams_5_month_dry] <- FIVE_month_dry
 
+# COMMENT_______________
+### This can be done different times and for a more complex structure. But so far will be perfect for first trys
 
-plot(apply(Flow_DB[,2:ncol(Flow_DB)],2,sum),nodes_DaFr$weight)
-  
+# We add a factor calles "Permanence to the "nodes" to plot
+nodes_DaFr <- data.frame(nodes_DaFr,"Permanence"=apply(Flow_DB[,1:(ncol(Flow_DB)-1)],2,sum))
+
+# We plot our beloved river colored according to the weight (order)/community size
+ggplot()+
+  geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord), 
+               arrow =arrow(length=unit(0.01,"cm"), ends="last"), size=0.2, colour="grey50", alpha=1)+
+  geom_point(data=nodes_DaFr, aes(x=x, y=y,
+                                  fill=Permanence,
+                                  size=weight/120000), shape=21)+
+  scale_fill_viridis(option = "D",discrete = F,direction = -1)+
+  scale_size(guide = "none") +
+  labs(y="",x="",fill="Comm. Size")+
+  theme_void()
+
+# IMPORTANT step! We switch the Flow_DB database to have the site ID in the first column
+Flow_DB<- cbind(Flow_DB[,ncol(Flow_DB)],Flow_DB[,1:(ncol(Flow_DB)-1)])
+# Need of colnames for the matrix
+colnames(Flow_DB) <- c("Site_ID",as.character(seq(1,nrow(nodes_DaFr),1)))
 
 # 3. STconmat calculation  ####
 # Remember that STcon is able to calculate several rivers at the same time! So you just need to have a list object with the 3 elements 
@@ -103,26 +134,38 @@ Int_dataset <- list(Flow_DB)
 Sit_coordinates <- list(nodes_DaFr[,c(3,3,1:2)])
 # Network structure
 Net_stru <- list(as.matrix(ocn_TEST$FD$W))
+# Distance matrix
+Dist_matr <- list((as.matrix(dist(nodes_DaFr[,1:2])))*as.matrix(ocn_TEST$FD$W))
 
 source("https://raw.github.com/Cunillera-Montcusi/Quantifyinig-SpaTem-connectivity/main/SpaTemp_function.R")
-Riv_Und_Net <- spat_temp_index(Inermitence_dataset = Int_dataset,
+Riv_Dir <- spat_temp_index(Inermitence_dataset = Int_dataset,
                                Sites_coordinates=Sit_coordinates,
                                Network_stru =Net_stru,
                                direction="directed", sense = "out",
-                               weighting=F,dist_matrices = NULL,
+                               weighting=T,dist_matrices = Dist_matr,
                                weighting_links =FALSE,link_weights = NULL,
                                legacy_effect =1, legacy_lenght = 1,
-                               value_S_LINK=1,
-                               value_T_LINK=1,
-                               value_NO_S_link=0,
-                               value_NO_T_link=0,
+                               value_S_LINK=0.2,
+                               value_T_LINK=0.2,
+                               value_NO_S_link=1,
+                               value_NO_T_link=1,
                                Network_variables=F,print.plots=F,print.directory="Figure/")
 
-Riv_Und_Net$STconmat
+
+Riv_STconmat <-Riv_Dir$STconmat[[1]]
+diag(Riv_STconmat) <- 0
+Riv_STconmat <-ifelse(Riv_STconmat==0,10000,Riv_STconmat)
+
+Riv_STconmat[1:10,1:10]
+
+length(which(Riv_STconmat<10000))
+length(which(Riv_STconmat>0))
+length(which(Dist_matr[[1]]>0))
 
 
 
 
+plot(apply(Riv_STconmat,2,mean),apply(Dist_matr[[1]],2,mean))
 
 
 
