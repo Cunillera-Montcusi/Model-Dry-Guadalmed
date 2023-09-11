@@ -29,17 +29,18 @@ library(viridis)
 edges_DaFr <- as.data.frame(get.edgelist(g))
 edges_DaFr <- edges_DaFr %>% dplyr::select("from"=V1, "to"=V2) %>% 
   mutate(X1_coord=2)%>% mutate(Y1_coord=2)%>% 
-  mutate(X2_coord=2)%>% mutate(Y2_coord=2)
+  mutate(X2_coord=2)%>% mutate(Y2_coord=2) # Create new columns for coordinates, to be filled later
 
 nodes_DaFr <- data.frame("x"=ocn_TEST$FD$X,
                          "y"=ocn_TEST$FD$Y,
                          "weight"=ocn_TEST$FD$A)
-  
+
+# Fill X and Y coordinate information for edges, using the nodes_DaFr
 for (nodes in 1:nrow(nodes_DaFr)) {
-  edges_DaFr[which(edges_DaFr$from==nodes),3] <- nodes_DaFr[nodes,1]
-  edges_DaFr[which(edges_DaFr$from==nodes),4] <- nodes_DaFr[nodes,2]
-  edges_DaFr[which(edges_DaFr$to==nodes),5] <- nodes_DaFr[nodes,1]
-  edges_DaFr[which(edges_DaFr$to==nodes),6] <- nodes_DaFr[nodes,2]
+  edges_DaFr[which(edges_DaFr$from==nodes),3] <- nodes_DaFr[nodes,]$x
+  edges_DaFr[which(edges_DaFr$from==nodes),4] <- nodes_DaFr[nodes,]$y
+  edges_DaFr[which(edges_DaFr$to==nodes),5] <- nodes_DaFr[nodes,]$x
+  edges_DaFr[which(edges_DaFr$to==nodes),6] <- nodes_DaFr[nodes,]$y
 }
 
 # We plot our beloved river colored according to the weight (order)/community size
@@ -62,11 +63,12 @@ nodes_DaFr
 # 10 years 
 # 12 months 
 # 3 dry months
+# each column is one node and rows are 12 months, repeated for 10 years, filled with only 1's for now
 Flow_DB <- matrix(nrow = 12*10, ncol =nrow(nodes_DaFr)+1, data = 1)
 # Month ID
 Flow_DB[,ncol(Flow_DB)] <- seq(1:(12*10))
 
-# In this case we assign drying according to weight (order/community size) so we take a look
+# In this case we assign drying (zeros) according to weight (order/community size) so we take a look
 summary(nodes_DaFr$weight)
 
 # IF we are setting things in "anual" month basis, we could generate a matrix (12 cols) with all the possible drying combinations
@@ -102,9 +104,9 @@ Streams_5_month_dry <- sample(FIVE_streams,
 Flow_DB[,Streams_5_month_dry] <- FIVE_month_dry
 
 # COMMENT_______________
-### This can be done different times and for a more complex structure. But so far will be perfect for first trys
+### This can be done different times and for a more complex structure. But so far will be perfect for first try
 
-# We add a factor calles "Permanence to the "nodes" to plot
+# We add a factor called "Permanence to the "nodes" to plot
 nodes_DaFr <- data.frame(nodes_DaFr,"Permanence"=apply(Flow_DB[,1:(ncol(Flow_DB)-1)],2,sum))
 
 # We plot our beloved river colored according to the weight (order)/community size
@@ -128,7 +130,7 @@ colnames(Flow_DB) <- c("Site_ID",as.character(seq(1,nrow(nodes_DaFr),1)))
 # Remember that STcon is able to calculate several rivers at the same time! So you just need to have a list object with the 3 elements 
 # for each river scenario: 
 
-# Intermitence database
+# Intermittence database
 Int_dataset <- list(Flow_DB)  
 # Sites coordinates
 Sit_coordinates <- list(nodes_DaFr[,c(3,3,1:2)])
@@ -137,6 +139,12 @@ Net_stru <- list(as.matrix(ocn_TEST$FD$W))
 # Distance matrix
 Dist_matr <- list((as.matrix(dist(nodes_DaFr[,1:2])))*as.matrix(ocn_TEST$FD$W))
 
+
+
+#some library to be needed
+library(shp2graph)
+library(doParallel)
+library(ggnetwork)
 source("https://raw.github.com/Cunillera-Montcusi/Quantifyinig-SpaTem-connectivity/main/SpaTemp_function.R")
 Riv_Dir <- spat_temp_index(Inermitence_dataset = Int_dataset,
                                Sites_coordinates=Sit_coordinates,
@@ -153,7 +161,10 @@ Riv_Dir <- spat_temp_index(Inermitence_dataset = Int_dataset,
 
 
 Riv_STconmat <-Riv_Dir$STconmat[[1]]
+
+#to construct a diagonal matrix
 diag(Riv_STconmat) <- 0
+# if Riv_STconmat is 0, write 10000, otherwise write Riv_STconmat
 Riv_STconmat <-ifelse(Riv_STconmat==0,10000,Riv_STconmat)
 
 Riv_STconmat[1:10,1:10]
@@ -161,8 +172,6 @@ Riv_STconmat[1:10,1:10]
 length(which(Riv_STconmat<10000))
 length(which(Riv_STconmat>0))
 length(which(Dist_matr[[1]]>0))
-
-
 
 
 plot(apply(Riv_STconmat,2,mean),apply(Dist_matr[[1]],2,mean))
