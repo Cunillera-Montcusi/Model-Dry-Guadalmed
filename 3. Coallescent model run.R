@@ -1,9 +1,11 @@
 
 # Charge the function to run the coalescent model
-source("H2020_Lattice_expKernel_Jenv_TempMeta.R")
+#source("H2020_Lattice_expKernel_Jenv_TempMeta.R")
+#to read for reproducibility
+source(file = paste0(getwd(),"/H2020_Lattice_expKernel_Jenv_TempMeta.R"))
 
 # Intermitence database
-Int_dataset <- list(Flow_DB)  
+Int_dataset <- list(Flow_DB)
 # Sites coordinates
 Sit_coordinates <- list(nodes_DaFr[,c(3,3,1:2)])
 # Network structure
@@ -23,7 +25,7 @@ Riv_STconmat
 
 ## Distance matrix 
 # It is equivalent to the Riv_STconmat 
-Dist_Matrix <- Riv_STconmat 
+Dist_Matrix <- Riv_STconmat
 
 ## Community size
 # Area total is the weight. But we must convert it to not take too long computation times 
@@ -31,9 +33,9 @@ FW_area <- nodes_DaFr$weight
   
 # We define parameters of Community area to transform weight to community size (J)
 Max_Area<-max(FW_area)
-Jmin <- 0 # What will be the minimum size at whic we will consider "0" 
+Jmin <- 0 # What will be the minimum size at which we will consider "0" 
 J.max<-400+Jmin # What is the maximum J that we want to assign to a community
-b.ef<-0.5 # The coefficient of change. If 1 we do a direct proportion between the two but minmimum becomes "1" (only 1 indiv)
+b.ef<-0.5 # The coefficient of change. If 1 we do a direct proportion between the two but minimimum becomes "1" (only 1 indiv)
 
 # J creation
 J.freshwater<-ceiling((-Jmin+(J.max/(Max_Area^b.ef))*FW_area^b.ef))
