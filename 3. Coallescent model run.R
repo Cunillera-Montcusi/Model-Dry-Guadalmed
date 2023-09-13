@@ -3,11 +3,11 @@
 
 # Charge the function to run the coalescent model
 #source("H2020_Lattice_expKernel_Jenv_TempMeta.R")
-#to read function for Zeynep
-source(file = paste0(getwd(),"/Desktop/Github/Model-Dry-Guadalmed/H2020_Lattice_expKernel_Jenv_TempMeta.R"))
+#to read for reproducibility
+source(file = paste0(getwd(),"/H2020_Lattice_expKernel_Jenv_TempMeta.R"))
 
 # Intermitence database
-Int_dataset <- list(Flow_DB)  
+Int_dataset <- list(Flow_DB)
 # Sites coordinates
 Sit_coordinates <- list(nodes_DaFr[,c(3,3,1:2)])
 # Network structure
@@ -27,7 +27,7 @@ Riv_STconmat
 
 ## Distance matrix 
 # It is equivalent to the Riv_STconmat 
-Dist_Matrix <- Riv_STconmat 
+Dist_Matrix <- Riv_STconmat
 
 ## Community size
 # Area total is the weight. But we must convert it to not take too long computation times 
