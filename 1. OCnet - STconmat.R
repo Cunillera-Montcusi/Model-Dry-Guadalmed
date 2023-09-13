@@ -45,7 +45,7 @@ for (nodes in 1:nrow(nodes_DaFr)) {
 # We plot our beloved river colored according to the weight (order)/community size
 ggplot()+
   geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord), 
-               arrow =arrow(length=unit(0.01,"cm"), ends="last"), size=0.2, colour="grey50", alpha=1)+
+               arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
   geom_point(data=nodes_DaFr, aes(x=x, y=y,fill=weight/120000,size=weight/120000), shape=21)+
   scale_fill_viridis(option = "D",discrete = F)+
   scale_size(guide = "none") +
@@ -93,7 +93,7 @@ Flow_DB[,Streams_3_month_dry] <- THREE_month_dry
 # We select those streams that will dry 5 months per year
 FIVE_month_dry <- rep(c(1,1,1,1,0,0,0,0,0,1,1,1),10) # We create an anual pattern of drying
 # We select the nodes under a determined criteria (in the example those below the half of the mean weight)
-FIVE_streams <- which(nodes_DaFr$weight<(summary(nodes_DaFr$weight)[4]/2))
+FIVE_streams <- 1:nrow(nodes_DaFr)#which(nodes_DaFr$weight<(summary(nodes_DaFr$weight)[4]/2))
 #Randomly select a part of these streams 
 Streams_5_month_dry <- sample(FIVE_streams,
                        size = length(FIVE_streams)*0.7, # Randomly 70% of streams

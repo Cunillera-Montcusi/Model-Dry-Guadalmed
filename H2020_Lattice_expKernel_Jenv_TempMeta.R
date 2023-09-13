@@ -175,7 +175,7 @@ H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom<-function(Meta.pool, m.pool,
           #"B.loc.inter.module"=Bett.inter,
           "G"=length(which(apply(ifelse(Meta[,id.obs]>0,1,0),1,sum)>1)),
           "simp"=diversity(apply(Meta[,id.obs],1,sum),"simpson"),
-          "inv.simp"=diversity(apply(Meta[,id.obs],1,sum), "invsimpson"),
+          "inv.simp"=diversity(apply(Meta[,id.obs],1,sum), "invsimpson")
           ),
           "MetaCom"=MetaCom_t) 
   Meta
