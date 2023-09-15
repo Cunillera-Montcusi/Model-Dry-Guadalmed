@@ -74,26 +74,35 @@ summary(nodes_DaFr$weight)
 # IF we are setting things in "anual" month basis, we could generate a matrix (12 cols) with all the possible drying combinations
 ## then we select the drying pattern randomly selecting determined rows (giving more probability to dryer/wetter ones?)
 
-# We select those streams that will dry 3 months
-THREE_month_dry <- rep(c(1,1,1,1,1,0,0,0,1,1,1,1),10) # We create an anual pattern of drying
-# We select the nodes under a determined criteria (in the example those between half the mean and the mean)
-THREE_streams <- which(nodes_DaFr$weight>(summary(nodes_DaFr$weight)[4]/2)
-                        &
-                       nodes_DaFr$weight<summary(nodes_DaFr$weight)[4])
+# WARNING_______________! 
+# I just "cancelled" this part to simulate only 1 type of drying :) de 70 vs 120 binary scenarios 
+# # We select those streams that will dry 3 months
+# THREE_month_dry <- rep(c(1,1,1,1,1,0,0,0,1,1,1,1),10) # We create an anual pattern of drying
+# # We select the nodes under a determined criteria (in the example those between half the mean and the mean)
+# THREE_streams <- which(nodes_DaFr$weight>(summary(nodes_DaFr$weight)[4]/2)
+#                         &
+#                        nodes_DaFr$weight<summary(nodes_DaFr$weight)[4])
+# 
+# #Randomly select a part of these streams 
+# Streams_3_month_dry <- sample(THREE_streams,
+#        size = length(THREE_streams)*0.7, # Randomly 70% of streams
+#        replace = F) # We randomly select which sites suffer this drying pattern
+# 
+# # We add the drying month pattern to the selected streams
+# Flow_DB[,Streams_3_month_dry] <- THREE_month_dry
+# 
 
-#Randomly select a part of these streams 
-Streams_3_month_dry <- sample(THREE_streams,
-       size = length(THREE_streams)*0.7, # Randomly 70% of streams
-       replace = F) # We randomly select which sites suffer this drying pattern
-
-# We add the drying month pattern to the selected streams
-Flow_DB[,Streams_3_month_dry] <- THREE_month_dry
 
 # COMMENT_______________
 ### We repeat the same for another criteria
 
 # We select those streams that will dry 5 months per year
 FIVE_month_dry <- rep(c(1,1,1,1,0,0,0,0,0,1,1,1),10) # We create an anual pattern of drying
+
+# WARNING_______________! 
+# I changed a bit how the nodes are assigned to do not "distinguish" between streams. Now the 
+# five month pattern is distributed to all the streams no matter wich position they have :) 
+
 # We select the nodes under a determined criteria (in the example those below the half of the mean weight)
 FIVE_streams <- 1:nrow(nodes_DaFr)#which(nodes_DaFr$weight<(summary(nodes_DaFr$weight)[4]/2))
 #Randomly select a part of these streams 
@@ -112,7 +121,7 @@ nodes_DaFr <- data.frame(nodes_DaFr,"Permanence"=apply(Flow_DB[,1:(ncol(Flow_DB)
 # We plot our beloved river colored according to the weight (order)/community size
 ggplot()+
   geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord), 
-               arrow =arrow(length=unit(0.01,"cm"), ends="last"), size=0.2, colour="grey50", alpha=1)+
+               arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
   geom_point(data=nodes_DaFr, aes(x=x, y=y,
                                   fill=Permanence,
                                   size=weight/120000), shape=21)+
@@ -167,24 +176,22 @@ diag(Riv_STconmat) <- 0
 # if Riv_STconmat is 0, write 10000, otherwise write Riv_STconmat
 Riv_STconmat <-ifelse(Riv_STconmat==0,10000,Riv_STconmat)
 
+# Some last checkings (not that relevant)
 Riv_STconmat[1:10,1:10]
-
 length(which(Riv_STconmat<10000))
 length(which(Riv_STconmat>0))
 length(which(Dist_matr[[1]]>0))
-
-
-plot(apply(Riv_STconmat,2,mean),apply(Dist_matr[[1]],2,mean))
+#plot(apply(Riv_STconmat,2,mean),apply(Dist_matr[[1]],2,mean))
 
 
 
 # Small script to test configurations with differing expEnergy
 
-out_matrix <- matrix(ncol =6 ,nrow = length(seq(0.1,50,5)))
-for (ener in 1:length(seq(0.1,50,5))) {
-  ocn_TEST <- create_OCN(dimX = 40,dimY = 30,nOutlet = 1,cellsize = 1, expEnergy=seq(0.1,50,5)[ener])
-  draw_simple_OCN(ocn_TEST)
-  out_matrix[ener,] <- c(summary(ocn_TEST$FD$A))
-  colnames(out_matrix) <- names(c(summary(ocn_TEST$FD$A)))
-}
+#out_matrix <- matrix(ncol =6 ,nrow = length(seq(0.1,50,5)))
+#for (ener in 1:length(seq(0.1,50,5))) {
+#  ocn_TEST <- create_OCN(dimX = 40,dimY = 30,nOutlet = 1,cellsize = 1, expEnergy=seq(0.1,50,5)[ener])
+#  draw_simple_OCN(ocn_TEST)
+#  out_matrix[ener,] <- c(summary(ocn_TEST$FD$A))
+#  colnames(out_matrix) <- names(c(summary(ocn_TEST$FD$A)))
+#}
 
