@@ -129,10 +129,10 @@ H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom<-function(Meta.pool, m.pool,
     if(length(id.fixed)>0)Meta_sml[,id.fixed]<-round(comm.fixed*max(Js),0)# update abundances of the fixed community to community size
     
     for(iteration in 1:it){                              # start lottery iterations  
-      print(c(iteration, " of ", it))
+      cat("Lottery iteration",iteration," of ", it, "\n",sep=" ")
       for(dead in 1:max.dead.by.it) {
         id.no.dead<-which(dead.by.it>=dead)               # identify communities to remove individuals
-        if(length(id.no.dead)>1)Meta_sml[,id.no.dead]<-Meta_sml[,id.no.dead]-apply(Meta_sml[,id.no.dead]*(1-filter.env_sml[,id.no.dead]),2,FUN = change, change=1) # remove individuals along all communities IMPORTANT:dead is inverselly proportional to filter matrix (because matrix elements are performance)
+        if(length(id.no.dead)>1)Meta_sml[,id.no.dead]<-Meta_sml[,id.no.dead]-apply(Meta_sml[,id.no.dead]*(1-filter.env_sml[,id.no.dead]),2,FUN = change, change=1) # remove individuals along all communities IMPORTANT:dead is inversely proportional to filter matrix (because matrix elements are performance)
         if(length(id.no.dead)==1)Meta_sml[,id.no.dead]<-Meta_sml[,id.no.dead]-change(Meta_sml[,id.no.dead]*(1-filter.env_sml[,id.no.dead]), change=1) # remove individuals along all communities
       }
       

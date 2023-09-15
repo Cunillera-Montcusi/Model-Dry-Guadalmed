@@ -46,38 +46,40 @@ filter_NOfilter # Filter of species per site. We will use for tolerance
 
 # Other parameters of the model
 id_NOmodule <- rep(1,nrow(nodes_DaFr)) # Modules if we want some sites to belong to the same module. 
-pool_200 <- rep(1,200) #rlnorm(n = 200,5,1) # Distribution of the species pool
+pool_200 <-  rlnorm(n = 200,5,1) # Distribution of the species pool #rep(1,200)
 Meta_t0 <- matrix(nrow = length(pool_200), ncol =nrow(nodes_DaFr), 1) #Previous Metacommunity (for considering time relevance)
   
 # Distances are related to the distance matrix. 
 # Therefore we must see which values correspond to our connections to set the "D50". Dispersal distance is
 # considered here as the distance at which probability of dispersal is 0.5. So "higher" or "lower" do not exclude
 # other dispersal abilities. They push "overall connectivity" towards higher or lower connections.
-summary(as.vector(Dist_Matrix)[-which(as.vector(Dist_Matrix)==10000)])
-dispersal_distances <- c(0.001,0.1,0.5,1,2,3,10)
+summary(as.vector(Dist_Matrix)[-which(as.vector(Dist_Matrix)==10000)]) 
+dispersal_distances <- c(0.001,0.1,0.5,1,2,3,10) # We set the dispersal abilities that we want
 
-tic()
-library(doParallel)
-registerDoParallel(cores = detectCores()-1)
-Diff_scenarios <- foreach(dispersal=1:length(dispersal_distances), .combine=rbind)%:%
-                  foreach(pollut=1:length(filter_Pollution), .combine=rbind)%dopar%{
-a <- NULL
+tic() # This is to count the time 
+library(doParallel) # We activate the parallelization
+registerDoParallel(cores = detectCores()-1) # We keep 1 core to be able to do something else while running
+Diff_scenarios <- foreach(dispersal=1:length(dispersal_distances), .combine=rbind)%:% # Parallelize for dispersal
+                  foreach(pollut=1:length(filter_Pollution), .combine=rbind)%dopar%{ # Parallellize for pollution
+a <- NULL # We create an output object for each iteration
 #b <- list()
-for (it in 1:10) {
+for (it in 1:10) { # We repeat 10 times the same process
 output <- H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom_tempIT(
-  Meta.pool = pool_200,
-  m.pool = 0.001,
-  Js = J.freshwater,
-  id.module = id_NOmodule,
-  filter.env = filter_Pollution[[pollut]],
-  M.dist = Dist_Matrix,
-  D50 = dispersal_distances[dispersal],
-  m.max = 1,
-  tempo_imp = 0.1,
-  temp_Metacom = Meta_t0,
-  temp_it = 0,
-  id.fixed=NULL, D50.fixed=0, m.max.fixed=0, comm.fixed=pool_200,
-  Lottery=F, it=500, prop.dead.by.it=0.0002, id.obs=1:nrow(nodes_DaFr))
+  Meta.pool = pool_200, # Species pool
+  m.pool = 0.001, # Regional dispersal which is always constant 
+  Js = J.freshwater, # Size of the communities (AKA: number of individuals/population contained in each community)
+  id.module = id_NOmodule, # id of modules if there are some - NOT used for us
+  filter.env = filter_Pollution[[pollut]], # Pollution scenarios (created at 2. Pollution assignation.R)
+  M.dist = Dist_Matrix, # Distance matrix which corresponds to the STconmat (created at 1. OCnet - STconmat.R)
+  D50 = dispersal_distances[dispersal], # Dispersal distance scenario 
+  m.max = 1, # Maximum migration
+  tempo_imp = 0.1, # Relvance of "temporal" effect
+  temp_Metacom = Meta_t0, # Metacommunity at time 0 (all species are equally favored)
+  temp_it = 0, # Number of temporal iterations
+  id.fixed=NULL, D50.fixed=0, m.max.fixed=0, comm.fixed=pool_200, # If there are some communit. that should be fixed
+  Lottery=F, it=5000, prop.dead.by.it=0.2, # Lottery parameters, nº iterations and proportion of dead organisms  
+  id.obs=1:nrow(nodes_DaFr)) # Information if we would like to keep specific results only
+
 a <- rbind(a,output[[1]])
 #b[[it]] <- output[[2]]
 }
@@ -85,7 +87,10 @@ resume.out(a)
 }
 toc()
 
+
 # > <
+
+# This part below extracts the S (richness) and B (average Jaccard) from each site and "data frame" it 
 Res_nodes_DaFr <- data.frame()
 for (round in 1:((length(Diff_scenarios)/4))) {
   #Diff_scenarios[[round]][1:9]
@@ -107,6 +112,7 @@ which(
 as.vector(Res_nodes_DaFr %>% mutate("Checking"=Pol_Scen-as.numeric(Pol_Scend_Simulation)) %>% select(Checking))$Checking>0
 )
 
+# This is the last last part and is just ot "plot" the results as we saw for the google shit : )
 plot_list <- list()
 for (plottt in 1:10) {
 plot_list[[plottt]] <- Res_nodes_DaFr %>% filter(Pol_Scen==as.character(plottt)) %>% 

@@ -36,12 +36,12 @@ ggplot()+
 
 # Species tolerances to pollution 
 # Pollution tollerance will be a gradient from 1 to 0 with species hi
-Spp_tolerance <- c(rep(1,50),rep(0.5,50),rep(0.2,50),rep(0.01,50))
+Spp_tolerance <- c(rep(0.9,50),rep(0.5,50),rep(0.2,50),rep(0.01,50))
 
 # Pollution acts as a filter. When a site its polluted a species is being filtered according to that. 
 #Therefore, for the polluted sites we need to use the "filter" 
 
-filter_NOfilter <- matrix(nrow = 200, ncol=nrow(nodes_DaFr), data = 1) # Filter of species per site. We will use for tolerance
+filter_NOfilter <- matrix(nrow = 200, ncol=nrow(nodes_DaFr), data = 0.99) # Filter of species per site. We will use for tolerance
 filter_NOfilter[,Polluted_Sites] <- Spp_tolerance
 
 filter_Pollution[[pollution_expans]] <- filter_NOfilter
