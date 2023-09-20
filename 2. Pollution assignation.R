@@ -3,25 +3,25 @@ edges_DaFr
 nodes_DaFr
 
 # Polluted sites assignation 
-# POSSIBLE criteria: Downstream rivers are more polluted. We can use the "out.closenness" centrality (we could use the wheigth also)
+# POSSIBLE criteria: Downstream rivers are more polluted. We can use the "out.closeness" centrality (we could use the weight also)
 Nodes_centrality <- igraph::closeness(g,mode = "out",normalized = T)
 Sites_to_Pollute <- which(Nodes_centrality>quantile(Nodes_centrality,0.5,na.rm = T))
 
-Sites_to_Pollute <- 1:nrow(nodes_DaFr)
+#Sites_to_Pollute <- 1:nrow(nodes_DaFr)
 
 nodes_DaFr_Pol <- data.frame()
 filter_Pollution <- list()
 for (pollution_expans in 1:10) {
-Polluted_Sites <- sample(Sites_to_Pollute,
-                         size =length(Sites_to_Pollute)*(pollution_expans/10),
+Polluted_Sites <- sample(Sites_to_Pollute, #randomly sample sites to pollute
+                         size =length(Sites_to_Pollute)*(pollution_expans/10), #sample size =number of sites*pollution expans/10
                          replace = F)
 
 
-Pollution <- rep("Non_Poll",nrow(nodes_DaFr))
-Pollution[Polluted_Sites] <- "YES_Poll"
+Pollution <- rep("Non_Poll",nrow(nodes_DaFr))# replicate "NonPoll" as the row number of nodes
+Pollution[Polluted_Sites] <- "YES_Poll" #write "YES_Poll" to polluted sites (randomly selected above)
 
-nodes_DaFr_temp <- data.frame(nodes_DaFr,"Pol_Scen"=pollution_expans,"Pollution"=Pollution) 
-nodes_DaFr_Pol <- bind_rows(nodes_DaFr_Pol,nodes_DaFr_temp)
+nodes_DaFr_temp <- data.frame(nodes_DaFr,"Pol_Scen"=pollution_expans,"Pollution"=Pollution)# merge scenarios and nodes
+nodes_DaFr_Pol <- bind_rows(nodes_DaFr_Pol,nodes_DaFr_temp)# bind rows after each scenario generation
 # We plot our beloved river colored according to the weight (order)/community size
 ggplot()+
   geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord), 
@@ -47,7 +47,7 @@ filter_NOfilter[,Polluted_Sites] <- Spp_tolerance
 filter_Pollution[[pollution_expans]] <- filter_NOfilter
 }
 
-# We can just check this just ot see that we have changed the values (it is just to check that we changed some values) 
+# We can just check this just to see that we have changed the values (it is just to check that we changed some values) 
 plot(apply(filter_Pollution[[1]],2,mean))
 plot(apply(filter_Pollution[[5]],2,mean))
 plot(apply(filter_Pollution[[10]],2,mean))

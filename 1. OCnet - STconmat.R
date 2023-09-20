@@ -47,7 +47,7 @@ for (nodes in 1:nrow(nodes_DaFr)) {
 ggplot()+
   geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord), 
                arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
-  geom_point(data=nodes_DaFr, aes(x=x, y=y,fill=weight/120000,size=weight/120000), shape=21)+
+  geom_point(data=nodes_DaFr, aes(x=x, y=y,fill=weight/120000,size=weight/120000), shape=21)+ # here weight/12000 is random decision for plotting
   scale_fill_viridis(option = "D",discrete = F)+
   scale_size(guide = "none") +
   labs(y="",x="",fill="Comm. Size")+
@@ -101,7 +101,7 @@ FIVE_month_dry <- rep(c(1,1,1,1,0,0,0,0,0,1,1,1),10) # We create an anual patter
 
 # WARNING_______________! 
 # I changed a bit how the nodes are assigned to do not "distinguish" between streams. Now the 
-# five month pattern is distributed to all the streams no matter wich position they have :) 
+# five month pattern is distributed to all the streams no matter which position they have :) 
 
 # We select the nodes under a determined criteria (in the example those below the half of the mean weight)
 FIVE_streams <- 1:nrow(nodes_DaFr)#which(nodes_DaFr$weight<(summary(nodes_DaFr$weight)[4]/2))
