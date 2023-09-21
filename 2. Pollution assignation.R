@@ -18,12 +18,12 @@ Polluted_Sites <- sample(Sites_to_Pollute, #randomly sample sites to pollute
 
 
 Pollution <- rep("Non_Poll",nrow(nodes_DaFr))# replicate "NonPoll" as the row number of nodes
-Pollution[Polluted_Sites] <- "YES_Poll" #write "YES_Poll" to polluted sites (randomly selected above)
+Pollution[Polluted_Sites] <- "YES_Poll" #write "YES_Poll" to polluted sites (which were randomly selected above)
 
 nodes_DaFr_temp <- data.frame(nodes_DaFr,"Pol_Scen"=pollution_expans,"Pollution"=Pollution)# merge scenarios and nodes
 nodes_DaFr_Pol <- bind_rows(nodes_DaFr_Pol,nodes_DaFr_temp)# bind rows after each scenario generation
 # We plot our beloved river colored according to the weight (order)/community size
-ggplot()+
+plt <- ggplot()+
   geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord), 
                arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
   geom_point(data=nodes_DaFr_Pol %>% filter(Pol_Scen==pollution_expans), 
@@ -34,17 +34,20 @@ ggplot()+
   labs(y="",x="",fill="Comm. Size")+
   theme_void()
 
+print(plt)
 # Species tolerances to pollution 
-# Pollution tollerance will be a gradient from 1 to 0 with species hi
+# Pollution tolerance will be a gradient from 1 to 0 with species hi
 Spp_tolerance <- c(rep(0.9,50),rep(0.5,50),rep(0.2,50),rep(0.01,50))
 
-# Pollution acts as a filter. When a site its polluted a species is being filtered according to that. 
+# Pollution acts as a filter. When a site is polluted a species is being filtered according to that. 
 #Therefore, for the polluted sites we need to use the "filter" 
 
+#here this creates a matrix as per species (n=200) (rows) and site (columns), with 0.99 as tolerance values
 filter_NOfilter <- matrix(nrow = 200, ncol=nrow(nodes_DaFr), data = 0.99) # Filter of species per site. We will use for tolerance
-filter_NOfilter[,Polluted_Sites] <- Spp_tolerance
+#select columns (from Polluted sites) and write spp_tolerance instead of 0.99
+filter_NOfilter[,Polluted_Sites] <- Spp_tolerance# here we write these tolerances (Spp_tolerance) to the polluted sites (selected above)
 
-filter_Pollution[[pollution_expans]] <- filter_NOfilter
+filter_Pollution[[pollution_expans]] <- filter_NOfilter # write filter_NOfilter matrix into the empty filter_Pollution list into different scenarios (created in the beginning)
 }
 
 # We can just check this just to see that we have changed the values (it is just to check that we changed some values) 
