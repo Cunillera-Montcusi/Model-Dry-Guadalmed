@@ -5,7 +5,7 @@
 source(file = paste0(getwd(),"/H2020_Lattice_expKernel_Jenv_TempMeta.R"))
 
 # Zeynep: me trying!! Parameters to define the runtime complexity
-Species_count <- 3 # 200
+Species_count <- 3 #200
 Iterations_count <- 500
 Input_filter_pollution <- filter_Pollution
 
@@ -14,7 +14,7 @@ for (i in 1:10) {
   Input_filter_pollution[[i]] <- Input_filter_pollution[[i]][1:Species_count, ]
 }
 
-# Intermitence database
+# Intermittence database
 Int_dataset <- list(Flow_DB)
 # Sites coordinates
 Sit_coordinates <- list(nodes_DaFr[,c(3,3,1:2)])
@@ -63,7 +63,7 @@ Meta_t0 <- matrix(nrow = length(pool_200), ncol =nrow(nodes_DaFr), 1) #Previous 
 # Therefore we must see which values correspond to our connections to set the "D50". Dispersal distance is
 # considered here as the distance at which probability of dispersal is 0.5. So "higher" or "lower" do not exclude
 # other dispersal abilities. They push "overall connectivity" towards higher or lower connections.
-summary(as.vector(Dist_Matrix)[-which(as.vector(Dist_Matrix)==10000)]) 
+summary(as.vector(Dist_Matrix)[-which(as.vector(Dist_Matrix)==10000)])# Dist_matrix= Riv_STconmat
 dispersal_distances <- c(0.001,0.1,0.5,1,2,3,10) # We set the dispersal abilities that we want
 
 library(tictoc)
@@ -80,14 +80,14 @@ output <- H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom_tempIT(
   m.pool = 0.001, # Regional dispersal which is always constant 
   Js = J.freshwater, # Size of the communities (AKA: number of individuals/population contained in each community)
   id.module = id_NOmodule, # id of modules if there are some - NOT used for us
-  filter.env = Input_filter_pollution[[pollut]], # Pollution scenarios (created at 2. Pollution assignation.R)
+  filter.env = Input_filter_pollution[[pollut]], # Pollution scenarios (created at 2. Pollution assignation.R) - this was filter_NOfilter before
   M.dist = Dist_Matrix, # Distance matrix which corresponds to the STconmat (created at 1. OCnet - STconmat.R)
   D50 = dispersal_distances[dispersal], # Dispersal distance scenario 
   m.max = 1, # Maximum migration
-  tempo_imp = 0.1, # Relvance of "temporal" effect
+  tempo_imp = 0.1, # Relevance of "temporal" effect
   temp_Metacom = Meta_t0, # Metacommunity at time 0 (all species are equally favored)
   temp_it = 0, # Number of temporal iterations
-  id.fixed=NULL, D50.fixed=0, m.max.fixed=0, comm.fixed=pool_200, # If there are some communit. that should be fixed
+  id.fixed=NULL, D50.fixed=0, m.max.fixed=0, comm.fixed=pool_200, # If there are some community that should be fixed
   Lottery=F, it=Iterations_count, prop.dead.by.it=0.2, # Lottery parameters, nº iterations and proportion of dead organisms  
   id.obs=1:nrow(nodes_DaFr)) # Information if we would like to keep specific results only
 
@@ -118,12 +118,12 @@ for (round in 1:((length(Diff_scenarios)/4))) {
   Res_nodes_DaFr <- bind_rows(Res_nodes_DaFr,Result_df)
 }
 
-# Checing scenario assignation
+# Checking scenario assignation
 which(
 as.vector(Res_nodes_DaFr %>% mutate("Checking"=Pol_Scen-as.numeric(Pol_Scend_Simulation)) %>% select(Checking))$Checking>0
 )
 
-# This is the last last part and is just ot "plot" the results as we saw for the google shit : )
+# This is the last last part and is just to "plot" the results as we saw for the google shit : )
 plot_list <- list()
 for (plottt in 1:10) {
 plot_list[[plottt]] <- Res_nodes_DaFr %>% filter(Pol_Scen==as.character(plottt)) %>% 
@@ -135,6 +135,4 @@ plot_list[[plottt]] <- Res_nodes_DaFr %>% filter(Pol_Scen==as.character(plottt))
 grid.arrange(plot_list[[1]],plot_list[[2]],plot_list[[3]],plot_list[[4]],plot_list[[5]],
              plot_list[[6]],plot_list[[7]],plot_list[[8]],plot_list[[9]],plot_list[[10]],
 ncol=2)
-
-
 
