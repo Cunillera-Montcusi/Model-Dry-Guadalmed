@@ -7,11 +7,19 @@ nodes_DaFr
 Nodes_centrality <- igraph::closeness(g,mode = "out",normalized = T)
 Sites_to_Pollute <- which(Nodes_centrality>quantile(Nodes_centrality,0.5,na.rm = T))
 
-#Sites_to_Pollute <- 1:nrow(nodes_DaFr)
+# another criteria-that ignores the criteria above
+Sites_to_Pollute <- 1:nrow(nodes_DaFr)
 
 nodes_DaFr_Pol <- data.frame()
 filter_Pollution <- list()
 for (pollution_expans in 1:10) {
+  
+#selecting randomly some sites but at every turn of the loop selecting larger and larger number of sites. 
+#This enlargement was made based on multiplying the total number of sites (I think it was 1200) by a percentage (the number of the "turn" divided by then).
+  # turn 1 (pollution_expans=1) --- size = 1200* (1/10=0.1) = 120 sites are polluted
+  # turn 2 (pollution_expans=2) --- size = 1200* (2/10=0.2) = 240 sites are polluted
+  # ....
+  # turn 10 (pollution_expans=10) --- size = 1200* (10/10=1) = 1200 sites are polluted
 Polluted_Sites <- sample(Sites_to_Pollute, #randomly sample sites to pollute
                          size =length(Sites_to_Pollute)*(pollution_expans/10), #sample size =number of sites*pollution expans/10
                          replace = F)
