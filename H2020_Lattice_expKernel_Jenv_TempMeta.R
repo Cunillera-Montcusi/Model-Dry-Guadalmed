@@ -167,7 +167,7 @@ H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom<-function(Meta.pool, m.pool,
   #}
   
   Meta<-list("out"=c("m.pool"=m.pool, "Js.max"=max(Js),"Js.min"=min(Js), "D50"=D50, "m.max"=m.max,
-          "D50.fixed"=D50.fixed, "m.max.fixed"=m.max.fixed,
+          "D50.fixed"=D50.fixed, "prp.dead"=prop.dead.by.it,#"m.max.fixed"=m.max.fixed,
           "Lottery"=ifelse(Lottery==TRUE,1,0), "it"=it, 
           "S.loc"=apply(ifelse(Meta[,id.obs]>0,1,0),2,sum),
           "B.loc.all"=ifelse(is.na(Bett.all)==T,0,Bett.all),
