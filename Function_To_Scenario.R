@@ -6,7 +6,7 @@ library(OCNet)
 # With the following function we create a river of a determined size and charactersitics: 
 # Cellsize sets the size of each cell (pixels) -- We can use this as a proxy of "community size"
 # expEnergy is defining the "branching" of the river in accordance with the size
-ocn_TEST <- create_OCN(dimX = 10,dimY = 10,nOutlet = 1,cellsize = 2, expEnergy=0.5)
+ocn_TEST <- create_OCN(dimX = 15,dimY = 15,nOutlet = 1,cellsize = 2, expEnergy=0.5)
 # Easy function to draw the river
 draw_simple_OCN(ocn_TEST)
 # FD$A defines the size (area actually) of each cell based on each position in the stream (order of the reach)
@@ -41,8 +41,12 @@ for (nodes in 1:nrow(nodes_DaFr)) {
   edges_DaFr[which(edges_DaFr$to==nodes),6] <- nodes_DaFr[nodes,]$y
 }
 
-diff_extent <- c(0.01,0.25,0.5,0.75,1)
+diff_extent <- c(0.01,0.1,0.2,0.3,0.5,0.75,0.9,1)
 diff_extent <- tidyr::crossing(diff_extent, diff_extent) 
+
+Orig_dispersal_pollution <- read.csv2("pollution_dispersal.csv") %>% drop_na()
+
+
 
 plots_diagnosis <- list()
 output_to_simulate <- list()
@@ -106,7 +110,9 @@ Plot_B <- ggplot()+geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend
 
 # 3. Pollutino assignation  ####
 
-Spp_tolerance <- c(rep(0.5,50),rep(0.65,50),rep(0.75,50),rep(0.8,50))
+#Spp_tolerance <- c(rep(0.5,50),rep(0.65,50),rep(0.75,50),rep(0.8,50))
+Spp_tolerance <- 1-(Orig_dispersal_pollution$IBMWP_score/10)
+
 source("Function_to_Pollute.R")
 filter_Pollution <- function_to_pollute(River_nodes =nodes_DaFr,
                                         Spp_tolerance =Spp_tolerance ,
@@ -115,7 +121,7 @@ filter_Pollution <- function_to_pollute(River_nodes =nodes_DaFr,
 
 # A way to detect polluted sites is by looking at which sites the "filter" does not meet the condition of all 0.99
 Pollution <- rep("Non_Poll",nrow(nodes_DaFr))# replicate "NonPoll" as the row number of nodes
-Polluted_Sites <- which(apply(filter_Pollution,2,sum)!=sum(rep(0.99*200)))
+Polluted_Sites <- which(apply(filter_Pollution,2,sum)!=sum(rep(0.99,length(Spp_tolerance))))
 Pollution[Polluted_Sites] <- "YES_Poll" #write "YES_Poll" to polluted sites (which were randomly selected above)
 
 nodes_DaFr <- nodes_DaFr %>% mutate("Pollution"=Pollution)# merge scenarios and nodes
@@ -146,13 +152,13 @@ filter_Pollution[,which(Pollution=="YES_Poll" & nodes_DaFr$Permanence==drying_ra
 }
 
 filter_Pollution_test <- t(filter_Pollution)
-colnames(filter_Pollution_test) <- paste(seq(1:200),"Spe",sep="_")
+colnames(filter_Pollution_test) <- paste(seq(1:length(Spp_tolerance)),"Spe",sep="_")
 
 plot_D <- gridExtra::arrangeGrob(
 nodes_DaFr %>% 
   bind_cols(as.data.frame(filter_Pollution_test)) %>% 
   pivot_longer(cols=8:ncol(.)) %>% 
-  mutate(name=factor(name,levels = paste(seq(1:200),"Spe",sep="_"))) %>% 
+  mutate(name=factor(name,levels = paste(seq(1:length(Spp_tolerance)),"Spe",sep="_"))) %>% 
   ggplot()+
   geom_tile(aes(y=as.factor(name),x=Site_ID,fill=value))+
   scale_fill_viridis(direction = -1)+
@@ -230,8 +236,6 @@ Riv_Drift <- spat_temp_index(Inermitence_dataset = Int_dataset,
                            value_NO_T_link=1,
                            Network_variables=F,print.plots=F,print.directory="Figure/")
 #save(list = "Riv_Drift",file = "Riv_Drift_STcon.RData")
-length(Riv_Drift$STcon)
-Riv_Drift$STcon[[25]]/Riv_Drift$STcon[[26]]
 
 Scen_Drift_STconmat <- list()
 for (scen in 1:(length(Int_dataset)-1)) {
@@ -300,21 +304,11 @@ for (scen in 1:(length(Int_dataset)-1)) {
 tictoc::toc()
 
 
-load("Riv_AerAct_STcon.RData")
-load("Riv_Swim_STcon.RData")
-load("Riv_Drift_STcon.RData")
-
-Scen_Drift_STconmat
-Scen_Swim_STconmat
-Scen_AAct_STconmat
-
-
 source("H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R")
 ###__________________________________
 ### WE BEGUN TO built all the data that we need to run the simulation
 ## Distance matrix 
 # It is equivalent to the Riv_STconmat 
-
 
 ## Community size
 # Area total is the weight. But we must convert it to not take too long computation times 
@@ -328,7 +322,7 @@ b.ef<-0.3 # The coefficient of change. If 1 we do a direct proportion between th
 J.freshwater<-ceiling((-Jmin+(J.max/(Max_Area^b.ef))*FW_area^b.ef))
 
 # Species tolerances defined in the 2. script
-output_to_simulate[[25]][[1]] # Filter of species per site. We will use for tolerance
+output_to_simulate[[1]][[1]] # Filter of species per site. We will use for tolerance
 # Other parameters of the model
 id_NOmodule <- rep(1,nrow(nodes_DaFr)) # Modules if we want some sites to belong to the same module. 
 pool_200 <- rep(1,nrow(filter_Pollution)) # Distribution of the species pool #rlnorm(n = 200,5,1) 
@@ -342,9 +336,14 @@ summary(as.vector(Dist_Matrix[[1]])[-which(as.vector(Dist_Matrix[[1]])==50)])
 
 dispersal_test <- c(0.5,3) # We set the dispersal abilities that we want
 
-Division <- ceiling((200/4)/3)
-Disp_Str <- rep(c(rep(1,Division),rep(2,Division),rep(3,Division)),4)
-Disp_Str <- Disp_Str[1:200]
+Disp_Str <- Orig_dispersal_pollution%>% 
+  mutate(Disp_Strateg=case_when(
+    str_detect(dispersal_strategy ,"dis4") ~ "3", 
+    str_detect(dispersal_strategy,"dis1") ~ "1",
+    str_detect(dispersal_strategy,"dis2") ~ "2",
+    TRUE ~ "MISTAKE")) %>% 
+    mutate(Disp_Strateg=as.numeric(Disp_Strateg)) %>% pull(Disp_Strateg)
+
 
 library(tictoc)
 tic() # This is to count the time 
@@ -395,9 +394,9 @@ for (round in 1:(25*2)) {
   S_sen <- Diff_scenarios[[round]][((nrow(output_to_simulate[[round_value]][[2]])*2)+13)]
   S_tol <- Diff_scenarios[[round]][((nrow(output_to_simulate[[round_value]][[2]])*2)+14)]
 
-  S_Drift <- Diff_scenarios[[1]][(10+nrow(nodes_DaFr)+nrow(nodes_DaFr)):(10+nrow(nodes_DaFr)+nrow(nodes_DaFr))]
-  S_Swim <- Diff_scenarios[[1]][(10+nrow(nodes_DaFr)+nrow(nodes_DaFr)):(10+nrow(nodes_DaFr)+nrow(nodes_DaFr))+1]
-  S_AAct <- Diff_scenarios[[1]][(10+nrow(nodes_DaFr)+nrow(nodes_DaFr)):(10+nrow(nodes_DaFr)+nrow(nodes_DaFr))+2]
+  S_Drift <- Diff_scenarios[[round]][(10+nrow(nodes_DaFr)+nrow(nodes_DaFr)):(10+nrow(nodes_DaFr)+nrow(nodes_DaFr))]
+  S_Swim <- Diff_scenarios[[round]][(10+nrow(nodes_DaFr)+nrow(nodes_DaFr)):(10+nrow(nodes_DaFr)+nrow(nodes_DaFr))+1]
+  S_AAct <- Diff_scenarios[[round]][(10+nrow(nodes_DaFr)+nrow(nodes_DaFr)):(10+nrow(nodes_DaFr)+nrow(nodes_DaFr))+2]
   #if(round<10){Pol_level <- as.character(round)}else{Pol_level <- strsplit(x = as.character(round),split = "")[[1]][2]}
   #if(Pol_level=="0"){Pol_level <- "10"}
   #
@@ -471,6 +470,22 @@ Res_nodes_DaFr %>% filter(Disp==0.5) %>%
   geom_point(aes(x=Pollut_ext ,y=S_Tol),colour="red")+
   facet_wrap(.~Dry_ext)
 
+gridExtra::grid.arrange(
+Res_nodes_DaFr %>% filter(Disp==0.5) %>% 
+ggplot()+geom_point(aes(x=Pollut_ext ,y=S))+
+labs(title="Richness",subtitle = "Dry_extent",y="")+facet_wrap(.~Dry_ext,nrow=1),
+
+Res_nodes_DaFr %>% filter(Disp==0.5) %>% 
+ggplot()+
+geom_point(aes(x=Pollut_ext ,y=S_Sen),colour="darkgreen")+geom_point(aes(x=Pollut_ext ,y=S_Tol),col="darkred")+
+labs(title="Sen vs Tol",subtitle = "Dry_extent",y="")+facet_wrap(.~Dry_ext,nrow=1),
+
+Res_nodes_DaFr %>% filter(Disp==0.5) %>%
+ggplot()+
+geom_point(aes(x=Pollut_ext ,y=S_Drift),colour=viridis(3)[1])+
+geom_point(aes(x=Pollut_ext ,y=S_Swim),colour=viridis(3)[2])+
+geom_point(aes(x=Pollut_ext ,y=S_AAct),colour=viridis(3)[3])+
+labs(title="Dispersals",subtitle = "Dry_extent",y="")+facet_wrap(.~Dry_ext,nrow=1))
 
 
 
