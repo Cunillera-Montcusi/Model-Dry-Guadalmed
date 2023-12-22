@@ -394,7 +394,7 @@ for (round in 1:(25*2)) {
   #Out$Median[((nrow(nodes_DaFr)*2)+10):length(Out$Median)]
   S_sen <- Diff_scenarios[[round]][((nrow(output_to_simulate[[round_value]][[2]])*2)+13)]
   S_tol <- Diff_scenarios[[round]][((nrow(output_to_simulate[[round_value]][[2]])*2)+14)]
-  print(S_sen)
+
   S_Drift <- Diff_scenarios[[1]][(10+nrow(nodes_DaFr)+nrow(nodes_DaFr)):(10+nrow(nodes_DaFr)+nrow(nodes_DaFr))]
   S_Swim <- Diff_scenarios[[1]][(10+nrow(nodes_DaFr)+nrow(nodes_DaFr)):(10+nrow(nodes_DaFr)+nrow(nodes_DaFr))+1]
   S_AAct <- Diff_scenarios[[1]][(10+nrow(nodes_DaFr)+nrow(nodes_DaFr)):(10+nrow(nodes_DaFr)+nrow(nodes_DaFr))+2]
@@ -416,8 +416,8 @@ for (round in 1:(25*2)) {
                                     "STcon_AAct"=STcon_AAct,
                                     "Mean_STcon"=apply(cbind(STcon_Drift,STcon_Swim,STcon_AAct),1,mean),
                                     "Ratio_S.T"=S_sen/S_tol,
-                                    "S_Tol"=S_sen,
-                                    "S_Sen"=S_tol,
+                                    "S_Tol"=S_tol,
+                                    "S_Sen"=S_sen,
                                     "S_Drift"=S_Drift,"S_Swim"=S_Swim,"S_AAct"=S_AAct,
                                     "S"=S_site,"B"=B_site))
   Res_nodes_DaFr <- bind_rows(Res_nodes_DaFr,Result_df)
@@ -467,7 +467,8 @@ dev.off()
 colnames(Res_nodes_DaFr)
 Res_nodes_DaFr %>% filter(Disp==0.5) %>% 
   ggplot()+
-  geom_point(aes(x=Mean_STcon ,y=S,colour=Mean_STcon))+
+  geom_point(aes(x=Pollut_ext ,y=S_Sen),colour="green")+
+  geom_point(aes(x=Pollut_ext ,y=S_Tol),colour="red")+
   facet_wrap(.~Dry_ext)
 
 
