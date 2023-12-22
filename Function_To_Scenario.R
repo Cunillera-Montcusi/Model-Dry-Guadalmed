@@ -81,8 +81,10 @@ Plot_A <- ggplot()+
 # Duration_constancy - responds to making the drying pattern "yearly" and repeating every year
 ## if FALSE it it will assign the corresponding drying days randomly through the whole time period (random drying)
 # Extect - corresponds to the % of selected nodes that will be drying
-# Distribution - corresponds to the number  
-
+# Distribution - corresponds to the specific nodes that we want to submit to drying (e.g. only upstream)
+# skeweed_distr is a modulator for "skewing" the distribution of durations. If all values are 1 it means 
+# that there is the same probability to get any of the duration (it can be useful in case we would like to
+# favor some of the values)
 source("Function_to_dry.R")
 Flow_DB <- function_to_dry(River_nodes = nodes_DaFr,
                            years =1,days =F,
@@ -113,6 +115,7 @@ Plot_B <- ggplot()+geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend
 #Spp_tolerance <- c(rep(0.5,50),rep(0.65,50),rep(0.75,50),rep(0.8,50))
 Spp_tolerance <- 1-(Orig_dispersal_pollution$IBMWP_score/10)
 
+# This function is very similar to the Dry but with less features (distribution is the same)
 source("Function_to_Pollute.R")
 filter_Pollution <- function_to_pollute(River_nodes =nodes_DaFr,
                                         Spp_tolerance =Spp_tolerance ,
