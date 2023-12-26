@@ -1,6 +1,6 @@
 
 H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom_tempIT <- function(Meta.pool, m.pool, Js, id.module, filter.env,
-                                                                   M.dist,Disp_Strat, D50, m.max,
+                                                                   M.dist,Disp_Strat,Tollerances, D50, m.max,
                                                                    tempo_imp,temp_Metacom,temp_it,
                                                                    id.fixed, D50.fixed, m.max.fixed, comm.fixed,
                                                                    Lottery, it, prop.dead.by.it, id.obs){
@@ -213,8 +213,10 @@ H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom<-function(Meta.pool, m.pool,
           "Disp_1"=mean(apply(ifelse(Meta[which(Disp_Strat==1),id.obs]>0,1,0),2,sum)),
           "Disp_2"=mean(apply(ifelse(Meta[which(Disp_Strat==2),id.obs]>0,1,0),2,sum)),
           "Disp_3"=mean(apply(ifelse(Meta[which(Disp_Strat==3),id.obs]>0,1,0),2,sum)),
-          "S.Sen"=mean(apply(ifelse(Meta[1:50,id.obs]>0,1,0),2,sum)),
-          "S.Tol"=mean(apply(ifelse(Meta[150:200,id.obs]>0,1,0),2,sum)),
+          "S.Sen"=mean(apply(ifelse(Meta[which(Tollerances>0.3),id.obs]>0,1,0),2,sum)),
+          "S.Tol"=mean(apply(ifelse(Meta[which(Tollerances<0.7),id.obs]>0,1,0),2,sum)),
+          "Mean_IBMWP"=apply(Meta,2,Com_Toll,Tollerances),
+          "IBMWP"=apply(Meta,2,Com_Toll,Tollerances),
           "G"=length(which(apply(ifelse(Meta[,id.obs]>0,1,0),1,sum)>1)),
           "simp"=diversity(apply(Meta[,id.obs],1,sum),"simpson"),
           "inv.simp"=diversity(apply(Meta[,id.obs],1,sum), "invsimpson")
@@ -223,9 +225,9 @@ H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom<-function(Meta.pool, m.pool,
   Meta
 }
 
-####
-
-
+####Community tollerances calculation
+Mean_Com_Toll<- function(x_matr,Tollerances){mean((10.1-(Tollerances*10))[which(x_matr>0)])}
+Sum_Com_Toll<- function(x_matr,Tollerances){sum((10.1-(Tollerances*10))[which(x_matr>0)])}
 
 
 
