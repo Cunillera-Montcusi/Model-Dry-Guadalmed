@@ -113,7 +113,7 @@ Plot_B <- ggplot()+geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend
 # 3. Pollutino assignation  ####
 
 #Spp_tolerance <- c(rep(0.5,50),rep(0.65,50),rep(0.75,50),rep(0.8,50))
-Spp_tolerance <- 1-(Orig_dispersal_pollution$IBMWP_score/10)
+Spp_tolerance <- 1.01-(Orig_dispersal_pollution$IBMWP_score/10)
 
 # This function is very similar to the Dry but with less features (distribution is the same)
 source("Function_to_Pollute.R")
@@ -238,7 +238,7 @@ Riv_Drift <- spat_temp_index(Inermitence_dataset = Int_dataset,
                            value_NO_S_link=1,
                            value_NO_T_link=1,
                            Network_variables=F,print.plots=F,print.directory="Figure/")
-#save(list = "Riv_Drift",file = "Riv_Drift_STcon.RData")
+save(list = "Riv_Drift",file = "Riv_Drift_STcon.RData")
 
 Scen_Drift_STconmat <- list()
 for (scen in 1:(length(Int_dataset)-1)) {
@@ -261,7 +261,7 @@ Riv_Swim <- spat_temp_index(Inermitence_dataset = Int_dataset,
                              value_NO_S_link=1,
                              value_NO_T_link=1,
                              Network_variables=F,print.plots=F,print.directory="Figure/")
-#save(list = "Riv_Swim",file = "Riv_Swim_STcon.RData")
+save(list = "Riv_Swim",file = "Riv_Swim_STcon.RData")
 
 Scen_Swim_STconmat <- list()
 for (scen in 1:(length(Int_dataset)-1)) {
@@ -294,7 +294,7 @@ Riv_AerAct <- spat_temp_index(Inermitence_dataset = Int_dataset,
                              value_NO_S_link=1,
                              value_NO_T_link=1,
                              Network_variables=F,print.plots=F,print.directory="Figure/")
-#save(list = "Riv_AerAct",file = "Riv_AerAct_STcon.RData")
+save(list = "Riv_AerAct",file = "Riv_AerAct_STcon.RData")
 tictoc::toc()
 Scen_AAct_STconmat <- list()
 for (scen in 1:(length(Int_dataset)-1)) {
@@ -335,7 +335,7 @@ Meta_t0 <- matrix(nrow = length(pool_200), ncol =nrow(nodes_DaFr), 1) #Previous 
 # Therefore we must see which values correspond to our connections to set the "D50". Dispersal distance is
 # considered here as the distance at which probability of dispersal is 0.5. So "higher" or "lower" do not exclude
 # other dispersal abilities. They push "overall connectivity" towards higher or lower connections.
-summary(as.vector(Dist_Matrix[[1]])[-which(as.vector(Dist_Matrix[[1]])==50)]) 
+#summary(as.vector(Dist_Matrix[[1]])[-which(as.vector(Dist_Matrix[[1]])==50)]) 
 
 dispersal_test <- c(0.5,3) # We set the dispersal abilities that we want
 
@@ -356,7 +356,7 @@ Diff_scenarios <- foreach(dispersal=1:length(dispersal_test), .combine=rbind)%:%
                   foreach(pollut=1:length(output_to_simulate), .combine=rbind)%dopar%{ # Parallellize for pollution
 a <- NULL # We create an output object for each iteration
 #b <- list()
-for (it in 1:5) { # We repeat 10 times the same process
+for (it in 1:10) { # We repeat 10 times the same process
   output <- H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom_tempIT(
     Meta.pool = pool_200, # Species pool
     m.pool = 0.001, # Regional dispersal which is always constant 
@@ -364,6 +364,7 @@ for (it in 1:5) { # We repeat 10 times the same process
     id.module = id_NOmodule, # id of modules if there are some - NOT used for us
     filter.env = output_to_simulate[[pollut]][[1]], # Pollution scenarios (created at 2. Pollution assignation.R)
     Disp_Strat=Disp_Str,
+    Tollerances=Spp_tolerance,
     M.dist =list(Scen_Drift_STconmat[[pollut]],Scen_Swim_STconmat[[pollut]],Scen_AAct_STconmat[[pollut]]), # Distance matrix which corresponds to the STconmat (created at 1. OCnet - STconmat.R)
     D50 = dispersal_test[dispersal], # Dispersal distance scenario 
     m.max = 1, # Maximum migration
@@ -371,8 +372,8 @@ for (it in 1:5) { # We repeat 10 times the same process
     temp_Metacom = Meta_t0, # Metacommunity at time 0 (all species are equally favored)
     temp_it = 0, # Number of temporal iterations
     id.fixed=NULL, D50.fixed=0, m.max.fixed=0, comm.fixed=pool_200, # If there are some communit. that should be fixed
-    Lottery=T, 
-    it=100, 
+    Lottery=F, 
+    it=1000, 
     prop.dead.by.it=0.07, # Lottery parameters, nº iterations and proportion of dead organisms  
     id.obs=1:nrow(nodes_DaFr)) # Information if we would like to keep specific results only
   a <- rbind(a,output[[1]])
@@ -381,6 +382,7 @@ for (it in 1:5) { # We repeat 10 times the same process
 resume.out(a)
 }
 toc()
+
 
 # > <
 # This part below extracts the S (richness) and B (average Jaccard) from each site and "data frame" it 
