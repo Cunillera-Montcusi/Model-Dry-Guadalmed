@@ -41,12 +41,10 @@ for (nodes in 1:nrow(nodes_DaFr)) {
   edges_DaFr[which(edges_DaFr$to==nodes),6] <- nodes_DaFr[nodes,]$y
 }
 
-diff_extent <- c(0.01,0.1,0.2,0.3,0.5,0.75,0.9,1)
-diff_extent <- tidyr::crossing(diff_extent, diff_extent) 
+diff_extent <- c(0.01,0.25,0.5,0.75,0.99)
+diff_extent <- tidyr::crossing(diff_extent, diff_extent,diff_extent)
 
 Orig_dispersal_pollution <- read.csv2("pollution_dispersal.csv") %>% drop_na()
-
-
 
 plots_diagnosis <- list()
 output_to_simulate <- list()
@@ -86,10 +84,11 @@ Plot_A <- ggplot()+
 # that there is the same probability to get any of the duration (it can be useful in case we would like to
 # favor some of the values)
 source("Function_to_dry.R")
+duration_for_function <- seq(from=pull(diff_extent[diff_extent_value,3]),to=1,length.out=6)
 Flow_DB <- function_to_dry(River_nodes = nodes_DaFr,
-                           years =1,days =F,
-                           duration =c(0.1,0.2,0.3,0.5,0.6,1),
-                           duration_constancy = T,
+                           years =3,days =F,
+                           duration =duration_for_function,
+                           duration_constancy = F,
                            extent =as.numeric(Dry_extent),
                            distribution =NULL,
                            skeweed_distr = rep(1,6))
@@ -128,6 +127,8 @@ Polluted_Sites <- which(apply(filter_Pollution,2,sum)!=sum(rep(0.99,length(Spp_t
 Pollution[Polluted_Sites] <- "YES_Poll" #write "YES_Poll" to polluted sites (which were randomly selected above)
 
 nodes_DaFr <- nodes_DaFr %>% mutate("Pollution"=Pollution)# merge scenarios and nodes
+
+nodes_DaFr <- nodes_DaFr %>% mutate("Dry_Pattern"=round(sd(duration_for_function),2))# merge scenarios and nodes
 # We plot our beloved river colored according to the weight (order)/community size
 Plot_C <- ggplot()+
   geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord),
@@ -151,9 +152,11 @@ Poll_Dry_Inter <- drying_ranges/max(drying_ranges)
 Poll_Dry_Inter <- ifelse(Poll_Dry_Inter==1,0.99,Poll_Dry_Inter)
 Poll_Dry_Inter <- ifelse(Poll_Dry_Inter==0,0.0001,Poll_Dry_Inter)
 for (dry_range in 1:length(drying_ranges)) {
-filter_Pollution[,which(Pollution=="YES_Poll" & nodes_DaFr$Permanence==drying_ranges[dry_range])] <- scales::rescale(Spp_tolerance,to=c((Poll_Dry_Inter[dry_range]/10),Poll_Dry_Inter[dry_range]))
+if (drying_ranges[dry_range]==0) {Modif_Spp_tolerance <- rep(0,length(Spp_tolerance))}else{
+Modif_Spp_tolerance <- Spp_tolerance^(drying_ranges[dry_range]/max(nodes_DaFr$Permanence))}
+Dry_and_Poll_Spp_tolerance <- scales::rescale(Modif_Spp_tolerance,to=c(min(Spp_tolerance),max(Spp_tolerance)))
+filter_Pollution[,which(Pollution=="YES_Poll" & nodes_DaFr$Permanence==drying_ranges[dry_range])] <- Dry_and_Poll_Spp_tolerance
 }
-
 filter_Pollution_test <- t(filter_Pollution)
 colnames(filter_Pollution_test) <- paste(seq(1:length(Spp_tolerance)),"Spe",sep="_")
 
@@ -168,7 +171,7 @@ nodes_DaFr %>%
   theme_classic()+
   theme(axis.text.y = element_blank(),
         axis.ticks.y = element_blank(),
-        legend.position = "none"),
+        legend.position = "right"),
 nodes_DaFr %>% 
   bind_cols(as.data.frame(filter_Pollution_test)) %>% 
   pivot_longer(cols=8:ncol(.)) %>% 
@@ -179,7 +182,7 @@ nodes_DaFr %>%
   theme_classic()+
   theme(axis.text.y = element_blank(),
         axis.ticks.y = element_blank(),
-        legend.position = "none"),
+        legend.position = "right"),
 top= paste("Scenario",Dry_extent,Poll_extent,sep="_"),ncol=1)
 
 
@@ -189,19 +192,23 @@ output_to_simulate[[diff_extent_value]] <- list(filter_Pollution,nodes_DaFr)
 Flow_DB_toSTcon[[diff_extent_value]] <- Flow_DB
 }# Diff
 
-png(filename = "Scenario.png",width = 6000,height = 6500,units = "px",res =300)
-gridExtra::grid.arrange(
-plots_diagnosis[[1]][[1]],plots_diagnosis[[6]][[1]],
-plots_diagnosis[[12]][[1]],plots_diagnosis[[15]][[1]],
-plots_diagnosis[[19]][[1]],plots_diagnosis[[25]][[1]],nrow=6)
-dev.off()
-
-png(filename = "Scenario_SppFilt.png",width = 6000,height = 2000,units = "px",res =300)
-gridExtra::grid.arrange(
-  plots_diagnosis[[1]][[2]],plots_diagnosis[[6]][[2]],
-  plots_diagnosis[[12]][[2]],plots_diagnosis[[15]][[2]],
-  plots_diagnosis[[19]][[2]],plots_diagnosis[[25]][[2]],ncol=6)
-dev.off()
+# png(filename = "Scenario.png",width = 6000,height = 6500,units = "px",res =300)
+# gridExtra::grid.arrange(
+# plots_diagnosis[[1]][[1]],plots_diagnosis[[6]][[1]],
+# plots_diagnosis[[12]][[1]],plots_diagnosis[[15]][[1]],
+# plots_diagnosis[[19]][[1]],plots_diagnosis[[25]][[1]],nrow=6)
+# dev.off()
+# 
+# png(filename = "Scenario_SppFilt.png",width = 6000,height = 2000,units = "px",res =300)
+# gridExtra::grid.arrange(
+#   plots_diagnosis[[1]][[2]],plots_diagnosis[[6]][[2]],
+#   plots_diagnosis[[12]][[2]],plots_diagnosis[[15]][[2]],
+#   plots_diagnosis[[19]][[2]],plots_diagnosis[[25]][[2]],ncol=6)
+# dev.off()
+# 
+# grid.arrange(plots_diagnosis[[102]][[2]])
+# output_to_simulate[[102]][[1]]
+# output_to_simulate[[102]][[2]][c(90,139),]
 
 # 5. STconmat calculation  ####
 # Remember that STcon is able to calculate several rivers at the same time! So you just need to have a list object with the 3 elements 
@@ -244,9 +251,9 @@ Scen_Drift_STconmat <- list()
 for (scen in 1:(length(Int_dataset)-1)) {
   Drift_STconmat <-Riv_Drift$STconmat[[scen]]/Riv_Drift$STconmat[[length(Int_dataset)]]
   #to construct a diagonal matrix
-  diag(Drift_STconmat) <- 0
+  diag(Drift_STconmat) <- 1
   # if Riv_STconmat is 0, write 10000, otherwise write Riv_STconmat
-  Scen_Drift_STconmat[[scen]] <-ifelse(is.nan(Drift_STconmat)==T,50,Drift_STconmat)
+  Scen_Drift_STconmat[[scen]] <-ifelse(is.nan(Drift_STconmat)==T,100,Drift_STconmat)
 }
 
 Riv_Swim <- spat_temp_index(Inermitence_dataset = Int_dataset,
@@ -267,9 +274,9 @@ Scen_Swim_STconmat <- list()
 for (scen in 1:(length(Int_dataset)-1)) {
   Swim_STconmat <-Riv_Swim$STconmat[[scen]]/Riv_Swim$STconmat[[length(Int_dataset)]]
   #to construct a diagonal matrix
-  diag(Swim_STconmat) <- 0
+  diag(Swim_STconmat) <- 1
   # if Riv_STconmat is 0 or NaN, write 10000, otherwise write Riv_STconmat
-  Scen_Swim_STconmat[[scen]] <-ifelse(is.nan(Swim_STconmat)==T,50,Swim_STconmat)
+  Scen_Swim_STconmat[[scen]] <-ifelse(is.nan(Swim_STconmat)==T,100,Swim_STconmat)
 }
 tictoc::tic()
 # Network structure
@@ -300,12 +307,12 @@ Scen_AAct_STconmat <- list()
 for (scen in 1:(length(Int_dataset)-1)) {
   AAct_STconmat <-Riv_AerAct$STconmat[[scen]]/Riv_AerAct$STconmat[[length(Int_dataset)]]
   #to construct a diagonal matrix
-  diag(AAct_STconmat) <- 0
+  diag(AAct_STconmat) <- 1
   # if Riv_STconmat is 0 or NaN, write 10000, otherwise write Riv_STconmat
-  Scen_AAct_STconmat[[scen]] <-ifelse(is.nan(AAct_STconmat)==T,50,AAct_STconmat)
+  Scen_AAct_STconmat[[scen]] <-ifelse(is.nan(AAct_STconmat)==T,100,AAct_STconmat)
 }
 tictoc::toc()
-
+# 81057.89
 
 source("H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R")
 ###__________________________________
@@ -335,9 +342,9 @@ Meta_t0 <- matrix(nrow = length(pool_200), ncol =nrow(nodes_DaFr), 1) #Previous 
 # Therefore we must see which values correspond to our connections to set the "D50". Dispersal distance is
 # considered here as the distance at which probability of dispersal is 0.5. So "higher" or "lower" do not exclude
 # other dispersal abilities. They push "overall connectivity" towards higher or lower connections.
-#summary(as.vector(Dist_Matrix[[1]])[-which(as.vector(Dist_Matrix[[1]])==50)]) 
+#summary(as.vector(Scen_Swim_STconmat[[pollut]])[-which(as.vector(Scen_Swim_STconmat[[pollut]])==50)]) 
 
-dispersal_test <- c(0.5,3) # We set the dispersal abilities that we want
+dispersal_test <- c(0.15,0.75) # We set the dispersal abilities that we want
 
 Disp_Str <- Orig_dispersal_pollution%>% 
   mutate(Disp_Strateg=case_when(
@@ -372,8 +379,8 @@ for (it in 1:10) { # We repeat 10 times the same process
     temp_Metacom = Meta_t0, # Metacommunity at time 0 (all species are equally favored)
     temp_it = 0, # Number of temporal iterations
     id.fixed=NULL, D50.fixed=0, m.max.fixed=0, comm.fixed=pool_200, # If there are some communit. that should be fixed
-    Lottery=F, 
-    it=1000, 
+    Lottery=T, 
+    it=300, 
     prop.dead.by.it=0.07, # Lottery parameters, nº iterations and proportion of dead organisms  
     id.obs=1:nrow(nodes_DaFr)) # Information if we would like to keep specific results only
   a <- rbind(a,output[[1]])
@@ -382,15 +389,20 @@ for (it in 1:10) { # We repeat 10 times the same process
 resume.out(a)
 }
 toc()
-
+#save(Diff_scenarios,file = "Diff_scenarios_test125.RData")
+#save(output_to_simulate, file="Raw_Data_To_Simulatetest125.RData")
+# 13593.65 
 
 # > <
 # This part below extracts the S (richness) and B (average Jaccard) from each site and "data frame" it 
 Res_nodes_DaFr <- data.frame()
-for (round in 1:(25*2)) {
+leng_disp <- length(dispersal_test)
+Leng_scenarios <- length(output_to_simulate)
+
+for (round in 1:(Leng_scenarios*leng_disp)) {
   round_value <- round
-  if (round>25 & round<51) {round_value <- round_value-25}
-  if (round>50 & round<76) {round_value <- round_value-50}
+  if (round>Leng_scenarios & round<=(Leng_scenarios*2)) {round_value <- round_value-Leng_scenarios}
+  if (round>(Leng_scenarios*2) & round<=(Leng_scenarios*3)) {round_value <- round_value-(Leng_scenarios*2)}
 
   #print(Diff_scenarios[[round]][1:9])
   S_site<- Diff_scenarios[[round]][10:(nrow(output_to_simulate[[round_value]][[2]])+9)]
@@ -402,13 +414,13 @@ for (round in 1:(25*2)) {
   S_Drift <- Diff_scenarios[[round]][(10+nrow(nodes_DaFr)+nrow(nodes_DaFr)):(10+nrow(nodes_DaFr)+nrow(nodes_DaFr))]
   S_Swim <- Diff_scenarios[[round]][(10+nrow(nodes_DaFr)+nrow(nodes_DaFr)):(10+nrow(nodes_DaFr)+nrow(nodes_DaFr))+1]
   S_AAct <- Diff_scenarios[[round]][(10+nrow(nodes_DaFr)+nrow(nodes_DaFr)):(10+nrow(nodes_DaFr)+nrow(nodes_DaFr))+2]
-  #if(round<10){Pol_level <- as.character(round)}else{Pol_level <- strsplit(x = as.character(round),split = "")[[1]][2]}
-  #if(Pol_level=="0"){Pol_level <- "10"}
-  #
   
-  STcon_Drift <- Riv_Drift$STcon[[scen]]/Riv_Drift$STcon[[length(Int_dataset)]]
-  STcon_Swim <- Riv_Swim$STcon[[scen]]/Riv_Swim$STcon[[length(Int_dataset)]]
-  STcon_AAct <- Riv_AerAct$STcon[[scen]]/Riv_AerAct$STcon[[length(Int_dataset)]]
+  Mean_IBMWP <- Diff_scenarios[[round]][(15+(nrow(nodes_DaFr)*2)):(15+(nrow(nodes_DaFr)*2)+nrow(nodes_DaFr)-1)]
+  IBMWP <- Diff_scenarios[[round]][(15+(nrow(nodes_DaFr)*3)):(15+(nrow(nodes_DaFr)*3)+nrow(nodes_DaFr)-1)]
+  
+  STcon_Drift <- Riv_Drift$STcon[[round_value]]/Riv_Drift$STcon[[length(Int_dataset)]]
+  STcon_Swim <- Riv_Swim$STcon[[round_value]]/Riv_Swim$STcon[[length(Int_dataset)]]
+  STcon_AAct <- Riv_AerAct$STcon[[round_value]]/Riv_AerAct$STcon[[length(Int_dataset)]]
   
   STcon_Drift[which(is.nan(STcon_Drift))] <- 1
   Result_df <- bind_cols(output_to_simulate[[round_value]][[2]] %>%
@@ -423,6 +435,8 @@ for (round in 1:(25*2)) {
                                     "S_Tol"=S_tol,
                                     "S_Sen"=S_sen,
                                     "S_Drift"=S_Drift,"S_Swim"=S_Swim,"S_AAct"=S_AAct,
+                                    "Mean_IBMWP"=Mean_IBMWP,
+                                    "IBMWP"=IBMWP,
                                     "S"=S_site,"B"=B_site))
   Res_nodes_DaFr <- bind_rows(Res_nodes_DaFr,Result_df)
 }
@@ -477,12 +491,13 @@ Res_nodes_DaFr %>% filter(Disp==0.5) %>%
 
 gridExtra::grid.arrange(
 Res_nodes_DaFr %>% filter(Disp==0.5) %>% 
-ggplot()+geom_point(aes(x=Pollut_ext ,y=S))+
+ggplot()+geom_point(aes(x=Pollut_ext ,y=B))+
 labs(title="Richness",subtitle = "Dry_extent",y="")+facet_wrap(.~Dry_ext,nrow=1),
 
 Res_nodes_DaFr %>% filter(Disp==0.5) %>% 
 ggplot()+
-geom_point(aes(x=Pollut_ext ,y=S_Sen),colour="darkgreen")+geom_point(aes(x=Pollut_ext ,y=S_Tol),col="darkred")+
+geom_point(aes(x=Pollut_ext ,y=S_Sen),colour="darkgreen")+
+geom_point(aes(x=Pollut_ext ,y=S_Tol),col="darkred")+
 labs(title="Sen vs Tol",subtitle = "Dry_extent",y="")+facet_wrap(.~Dry_ext,nrow=1),
 
 Res_nodes_DaFr %>% filter(Disp==0.5) %>%
@@ -492,9 +507,37 @@ geom_point(aes(x=Pollut_ext ,y=S_Swim),colour=viridis(3)[2])+
 geom_point(aes(x=Pollut_ext ,y=S_AAct),colour=viridis(3)[3])+
 labs(title="Dispersals",subtitle = "Dry_extent",y="")+facet_wrap(.~Dry_ext,nrow=1))
 
+Res_nodes_DaFr %>% filter(Disp==0.5,weight>10) %>%
+  ggplot()+
+  geom_jitter(aes(x=as.numeric(Pollut_ext) ,y=IBMWP,colour=as.factor(Dry_ext)), alpha=0.1)+
+  geom_smooth(aes(x=as.numeric(Pollut_ext) ,y=IBMWP,colour=Dry_ext),method="loess")+
+  labs(title="Dispersals",subtitle = "Dry_extent",y="")+facet_wrap(Dry_ext~.)+
+  theme_classic()
+
+
+Res_nodes_DaFr %>% filter(Disp==0.5) %>%
+  ggplot()+
+  geom_jitter(aes(x=Mean_STcon ,y=S_Sen,colour=Pollution), alpha=0.1)+
+  #geom_smooth(aes(x=STcon_AAct ,y=S_AAct,colour=Pollution),method="loess")+
+  labs(title="Dispersals",subtitle = "Dry_extent",y="")+facet_wrap(Dry_ext~Dry_Pattern)+
+  theme_classic()
+
+Res_nodes_DaFr %>% filter(Disp==3,Pollut_ext>0.009) %>%
+  ggplot()+
+  geom_raster(aes(x=Pollut_ext ,y=Dry_ext,fill=S_Sen))+facet_wrap(.~Dry_Pattern)
+
+
+Res_nodes_DaFr
 
 
 
+  geom_jitter(aes(x=Permanence ,y=S_Sen,colour=Pollution), alpha=0.1)+
+  #geom_smooth(aes(x=STcon_AAct ,y=S_AAct,colour=Pollution),method="loess")+
+  labs(title="Dispersals",subtitle = "Dry_extent",y="")+facet_wrap(Dry_ext~Dry_Pattern)+
+  theme_classic()
+
+Res_nodes_DaFr%>% filter(Disp==0.) %>% ggplot()+
+  geom_point(aes(x=))
 
 
 

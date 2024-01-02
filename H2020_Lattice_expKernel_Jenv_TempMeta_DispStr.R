@@ -15,6 +15,7 @@ out_Metat0<- H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom(
             M.dist=M.dist, 
             D50=D50, 
             m.max=m.max,
+            Tollerances=Tollerances,
             tempo_imp = 0,
             temp_Metacom = temp_Metacom,
             id.fixed=id.fixed, D50.fixed=D50.fixed, m.max.fixed=m.max.fixed, comm.fixed=comm.fixed,
@@ -38,6 +39,7 @@ cat("coalescent iteration", temporal_it," de" ,temp_it )
       M.dist=M.dist, 
       D50=D50, 
       m.max=m.max,
+      Tollerances=Tollerances,
       tempo_imp = tempo_imp,
       temp_Metacom = out_Metat0$MetaCom,
       id.fixed=id.fixed, D50.fixed=D50.fixed, m.max.fixed=m.max.fixed, comm.fixed=comm.fixed,
@@ -72,7 +74,7 @@ resume.out<-function(out){
 #
 ###################################################################################################
 H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom<-function(Meta.pool, m.pool, Js, id.module, filter.env,
-                                                    M.dist,Disp_Strat, D50, m.max,
+                                                    M.dist,Disp_Strat, D50, m.max,Tollerances,
                                                     tempo_imp,temp_Metacom,
                                                     id.fixed, D50.fixed, m.max.fixed, comm.fixed,
                                                     Lottery, it, prop.dead.by.it, id.obs){
@@ -163,16 +165,23 @@ H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom<-function(Meta.pool, m.pool,
         if(length(id.no.dead)==1)Meta_sml[,id.no.dead]<-Meta_sml[,id.no.dead]-change(Meta_sml[,id.no.dead]*(1-filter.env_sml[,id.no.dead]), change=1) # remove individuals along all communities
       }
       
-      Pool.neighbor <- matrix(nrow = length(Meta.pool), ncol =ncol(filter.env),data = NA)
-      for (Disp_Strateg in 1:length(M.dist)) {
-        Dispersal_Strategies <- which(Disp_Strat==Disp_Strateg)
-        Pool.neighbor_temp <- (Meta_sml%*%M.migra_Disp_Strat_sml[[Disp_Strateg]])
-        Pool.neighbor[Dispersal_Strategies,] <- Pool.neighbor_temp[Dispersal_Strategies,]
-      }         # estimates potential reclutants including immigrants for all communities weighted by local abundances
+    if(fraction==1){
+    Pool.neighbor <- matrix(nrow = length(Meta.pool), ncol =ncol(filter.env),data = 0)
+    for (Disp_Strateg in 1:length(unique(Disp_Str))) {
+    Dispersal_Strategies <- which(Disp_Strat==Disp_Strateg)
+    Pool.neighbor_temp <- (Meta_sml%*%M.migra_Disp_Strat_sml[[Disp_Strateg]])
+    Pool.neighbor[Dispersal_Strategies,] <- Pool.neighbor[Dispersal_Strategies,]+Pool.neighbor_temp[Dispersal_Strategies,]
+    }
+    Pool.neighbor <- apply(Pool.neighbor,2,m_to_1_Neigh)
+    }# IF fraction is 1
+    
+    if(fraction==2){
+    Pool.neighbor<-(Meta_sml%*%M.migra_Disp_Strat_sml[[Disp_Strateg]]) # estimates potential reclutants including immigrants for all communities weighted by local abundances
+    }
+    
+    Pool.neighbor<-Pool.neighbor*filter.env_sml # IMPORTANT: element by element adjustment of species abundances to local filters
       
-      Pool.neighbor<-Pool.neighbor*filter.env_sml # IMPORTANT: element by element adjustment of species abundances to local filters
-      
-      Pool.neighbor <- ((Pool.neighbor/max(Pool.neighbor))*(1-tempo_imp))+((temp_Metacom_sml/max(temp_Metacom_sml))*tempo_imp)
+    Pool.neighbor <- ((Pool.neighbor/max(Pool.neighbor))*(1-tempo_imp))+((temp_Metacom_sml/max(temp_Metacom_sml))*tempo_imp)
       
       id.comm<-0
       for(reclutants in dead.by.it) {          # dead.by.it is the vector of number of indiviuals to update in each iteration (a fixed fraction of J)
@@ -213,10 +222,10 @@ H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom<-function(Meta.pool, m.pool,
           "Disp_1"=mean(apply(ifelse(Meta[which(Disp_Strat==1),id.obs]>0,1,0),2,sum)),
           "Disp_2"=mean(apply(ifelse(Meta[which(Disp_Strat==2),id.obs]>0,1,0),2,sum)),
           "Disp_3"=mean(apply(ifelse(Meta[which(Disp_Strat==3),id.obs]>0,1,0),2,sum)),
-          "S.Sen"=mean(apply(ifelse(Meta[which(Tollerances>0.3),id.obs]>0,1,0),2,sum)),
-          "S.Tol"=mean(apply(ifelse(Meta[which(Tollerances<0.7),id.obs]>0,1,0),2,sum)),
-          "Mean_IBMWP"=apply(Meta,2,Com_Toll,Tollerances),
-          "IBMWP"=apply(Meta,2,Com_Toll,Tollerances),
+          "S.Sen"=mean(apply(ifelse(Meta[which(Tollerances<0.3),id.obs]>0,1,0),2,sum)),
+          "S.Tol"=mean(apply(ifelse(Meta[which(Tollerances>0.7),id.obs]>0,1,0),2,sum)),
+          "Mean_IBMWP"=apply(Meta,2,Mean_Com_Toll,Toller=Tollerances),
+          "IBMWP"=apply(Meta,2,Sum_Com_Toll,Toller=Tollerances),
           "G"=length(which(apply(ifelse(Meta[,id.obs]>0,1,0),1,sum)>1)),
           "simp"=diversity(apply(Meta[,id.obs],1,sum),"simpson"),
           "inv.simp"=diversity(apply(Meta[,id.obs],1,sum), "invsimpson")
@@ -226,8 +235,8 @@ H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom<-function(Meta.pool, m.pool,
 }
 
 ####Community tollerances calculation
-Mean_Com_Toll<- function(x_matr,Tollerances){mean((10.1-(Tollerances*10))[which(x_matr>0)])}
-Sum_Com_Toll<- function(x_matr,Tollerances){sum((10.1-(Tollerances*10))[which(x_matr>0)])}
+Mean_Com_Toll<- function(x_matr,Toller){mean((10.1-(Toller*10))[which(x_matr>0)])}
+Sum_Com_Toll<- function(x_matr,Toller){sum((10.1-(Toller*10))[which(x_matr>0)])}
 
 
 
