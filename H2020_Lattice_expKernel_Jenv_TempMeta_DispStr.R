@@ -219,11 +219,11 @@ H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom<-function(Meta.pool, m.pool,
           "m.max.fixed"=m.max.fixed,"it"=it, 
           "S.loc"=apply(ifelse(Meta[,id.obs]>0,1,0),2,sum),
           "B.loc.all"=ifelse(is.na(Bett.all)==T,0,Bett.all),
-          "Disp_1"=mean(apply(ifelse(Meta[which(Disp_Strat==1),id.obs]>0,1,0),2,sum)),
-          "Disp_2"=mean(apply(ifelse(Meta[which(Disp_Strat==2),id.obs]>0,1,0),2,sum)),
-          "Disp_3"=mean(apply(ifelse(Meta[which(Disp_Strat==3),id.obs]>0,1,0),2,sum)),
-          "S.Sen"=mean(apply(ifelse(Meta[which(Tollerances<0.3),id.obs]>0,1,0),2,sum)),
-          "S.Tol"=mean(apply(ifelse(Meta[which(Tollerances>0.7),id.obs]>0,1,0),2,sum)),
+          "Disp_1"=apply(ifelse(Meta[which(Disp_Strat==1),id.obs]>0,1,0),2,sum),
+          "Disp_2"=apply(ifelse(Meta[which(Disp_Strat==2),id.obs]>0,1,0),2,sum),
+          "Disp_3"=apply(ifelse(Meta[which(Disp_Strat==3),id.obs]>0,1,0),2,sum),
+          "S.Sen"=apply(ifelse(Meta[which(Tollerances<0.3),id.obs]>0,1,0),2,sum),
+          "S.Tol"=apply(ifelse(Meta[which(Tollerances>0.7),id.obs]>0,1,0),2,sum),
           "Mean_IBMWP"=apply(Meta,2,Mean_Com_Toll,Toller=Tollerances),
           "IBMWP"=apply(Meta,2,Sum_Com_Toll,Toller=Tollerances),
           "G"=length(which(apply(ifelse(Meta[,id.obs]>0,1,0),1,sum)>1)),
@@ -249,9 +249,9 @@ Sum_Com_Toll<- function(x_matr,Toller){sum((10.1-(Toller*10))[which(x_matr>0)])}
 H2020_migration.matrix.kernel.all<-function(M.dist, m.pool, D50,m.max, 
                                             id.fixed, D50.fixed, m.max.fixed){
   diag(M.dist)=NA
-  M.dist = M.dist-0#min(M.dist, na.rm=T) # min distance is the distance between neighbour cells. 
-  # connected cells has distance zero and migration m.max
-  b = -log(0.5)/D50         # b is estimated | m(D50)=m.max*0.5
+  M.dist = M.dist-min(M.dist, na.rm=T) # min distance is the distance between neighbour cells. 
+                    # connected cells has distance zero and migration m.max
+  b = -log(m.max*0.5)/D50         # b is estimated | m(D50)
   M.migra = m.max*exp(-b*M.dist) 
   
   if(length(id.fixed)>0){
@@ -259,8 +259,8 @@ H2020_migration.matrix.kernel.all<-function(M.dist, m.pool, D50,m.max,
     M.migra[id.fixed,]<- m.max.fixed*exp(-b.fixed*M.dist[id.fixed,]) # migration from outlet
   }                                                          # M.migra is the potential migration between communities, 
   
-  diag(M.migra)<-1                                         # selfrecruitment is considered as 1=m.intra community
-  M.migra<-apply(M.migra,2,m_to_1,m.pool)                      # standirize migrations to 1: (m.intra+m.pool+m.neigh=1)
+  diag(M.migra)<-1                                            # selfrecruitment is considered as 1=m.intra community
+  M.migra<-apply(M.migra,2,m_to_1,m.pool)                     # standirize migrations to 1: (m.intra+m.pool+m.neigh=1)
   M.migra
 }
 
