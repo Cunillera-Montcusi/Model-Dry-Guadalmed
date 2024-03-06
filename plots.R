@@ -87,6 +87,7 @@ Data_To_Plot %>% group_by(Pollut_ext,Dry_ext,Pollution) %>%
   theme_classic()+theme(legend.position = "none")
 
 # test
+for (response_var in c("IBMWP", "S", "B", "Ratio_S.T")) {
 unique(Res_nodes_DaFr$Dry_ext)
 Test_list <- list()
 SEMU <- data.frame()
@@ -99,7 +100,7 @@ for (Driri in 1:length(unique(Res_nodes_DaFr$Dry_ext))) {
   #filter(Mean_STcon>Perm)
   
   Data_To_Plot_Z <- Data_To_Plot %>% 
-    mutate(Z_test=((IBMWP-mean(Data_To_Plot_Ref$IBMWP))/sd(Data_To_Plot_Ref$IBMWP))) %>%
+    mutate(Z_test=((!! rlang::sym(response_var) - mean(Data_To_Plot_Ref[[response_var]])) / sd(Data_To_Plot_Ref[[response_var]]))) %>%
     filter(Dry_ext==Dry_ext_to_test,Pollut_ext!=0.01) %>% 
     group_by(Dry_ext,Pollut_ext,Pollution) 
   
@@ -130,7 +131,7 @@ for (Driri in 1:length(unique(Res_nodes_DaFr$Dry_ext))) {
   SEMU <- bind_rows(SEMU,SEM)
 }
 
-png(filename = "ScenarioS_STcon.png",width = 4000,height = 4000,units = "px",res =300)
+png(filename = paste0("ScenarioS_STcon_var_", response_var,".png"),width = 4000,height = 4000,units = "px",res =300)
 do.call("grid.arrange", c(Test_list, ncol=3))
 dev.off()
 
@@ -141,9 +142,9 @@ SEMU %>% ggplot()+
   scale_color_viridis(discrete = T,option = "G",direction = -1)+theme_classic()+
   geom_hline(yintercept = 1,colour="red",size=1.2,linetype=2)+
   #geom_hline(yintercept = -1,colour="red",size=1.2,linetype=2)+
-  labs(title="IBMWP", colour="Pollution",x="Drying extent")+
+  labs(title=response_var, colour="Pollution",x="Drying extent")+
   scale_y_continuous(limits = c(-0.5,7))
-
+}
 
 am <- aov(letssee~as.factor(Pollut),data=SEMU)
 TukeyHSD(am)
