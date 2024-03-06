@@ -1,5 +1,8 @@
 # 6. Plots and results outputs ####
-library(tidyverse);library(viridis)
+library(gridExtra);library(tidyverse);library(viridis)
+
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+
 load("./data/Results_Good_scenarios.RData")
 
 colnames(Res_nodes_DaFr)
@@ -12,7 +15,7 @@ colnames(Data_To_Plot)
 
 # plots only filtering for pollution extent=0.01
 # STcon vs S for mean and different dispersal categories
-gridExtra::grid.arrange(
+grid.arrange(
   Data_To_Plot %>% ggplot()+
     geom_smooth(aes(x=Mean_STcon,y=Permanence,colour=Dry_ext),method = "lm",se=T)+
     scale_colour_viridis(discrete = T,option = "D",direction = 1)+
@@ -49,7 +52,7 @@ gridExtra::grid.arrange(
   ncol=5)
 
 #STcon vs Permanence and Stcon vs B (beta diversity)
-gridExtra::grid.arrange(
+grid.arrange(
   Data_To_Plot %>% ggplot()+
     geom_smooth(aes(x=Mean_STcon,y=Permanence,colour=Dry_ext),method = "lm",se=T)+
     scale_colour_viridis(discrete = T,option = "D",direction = 1)+
@@ -92,7 +95,7 @@ for (Driri in 1:length(unique(Res_nodes_DaFr$Dry_ext))) {
   
   #Perm <- summary(Data_To_Plot %>% filter(Dry_ext==Dry_ext_to_test,Pollut_ext!=0.01) %>% 
   #                  pull(Mean_STcon))[2]
-  Data_To_Plot_Ref <- Res_nodes_DaFr %>% filter(Disp==0.15,Dry_ext==0.01,Pollut_ext==0.01) #%>% 
+  Data_To_Plot_Ref <- Res_nodes_DaFr %>% filter(Disp==0.15,Dry_ext==Dry_ext_to_test,Pollut_ext==0.01) #%>% 
   #filter(Mean_STcon>Perm)
   
   Data_To_Plot_Z <- Data_To_Plot %>% 
@@ -100,20 +103,7 @@ for (Driri in 1:length(unique(Res_nodes_DaFr$Dry_ext))) {
     filter(Dry_ext==Dry_ext_to_test,Pollut_ext!=0.01) %>% 
     group_by(Dry_ext,Pollut_ext,Pollution) 
   
-  Data_To_Plot_Z %>%mutate(Z_Mean=mean(Z_test),Z_sd=sd(Z_test)) %>% 
-    ggplot() +
-    geom_point(aes(x=Z_test,y=Mean_STcon,fill=Pollut_ext,shape=Pollution),alpha=0.05)+
-    geom_point(aes(x=Z_Mean,y=Pollut_ext,colour=Pollution),alpha=0.5)+
-    geom_errorbar(aes(x=Z_Mean,y=Pollut_ext,xmin = Z_Mean-Z_sd, xmax = Z_Mean+Z_sd,colour=Pollution))+
-    scale_fill_viridis(discrete = T,option = "G",direction = 1)+
-    scale_colour_manual(values = c("grey","darkgreen"))+
-    scale_shape_manual(values=c(21,22))+
-    geom_vline(xintercept=c(0),colour="black",size=1,linetype=2)+
-    scale_x_continuous(limits = c(-10,3))+
-    labs(title=paste("Drying extention:",Dry_ext_to_test))+
-    theme_classic()+facet_wrap(.~Pollut_ext,nrow = 2)
-  
-  Test_list[[Driri]] <- Data_To_Plot_Z %>%mutate(Z_Mean=mean(Z_test),Z_sd=sd(Z_test)) %>% 
+  Test_list[[Driri]] <- Data_To_Plot_Z %>%mutate(Z_Mean=mean(Z_test),Z_sd=sd(Z_test)) %>%
     ggplot() +
     geom_point(aes(x=Z_test,y=Mean_STcon,fill=Mean_STcon,shape=Pollution,colour=Pollution),alpha=0.5)+
     #geom_point(aes(x=Z_Mean,y=Pollut_ext,colour=Pollution),alpha=0.5)+
@@ -125,29 +115,23 @@ for (Driri in 1:length(unique(Res_nodes_DaFr$Dry_ext))) {
     scale_x_continuous(limits = c(-10,3))+
     labs(title=paste("Drying extention:",Dry_ext_to_test))+
     theme_classic()#+facet_wrap(.~Pollut_ext,nrow = 2)
-  
+
   test <- Data_To_Plot_Z %>% select(Pollution,Z_test)
-  
+
   letssee <- c()
   for (Pollut in 1:(length(unique(test$Pollut_ext))-1)) {
-    To_test <- test %>% filter(Pollut_ext==unique(test$Pollut_ext)[Pollut]) %>%  
+    To_test <- test %>% filter(Pollut_ext==unique(test$Pollut_ext)[Pollut]) %>%
       group_by(Pollution) %>% summarise(Mean=mean(Z_test)) %>%
       pull(Mean)
     letssee[Pollut] <- To_test[1]-To_test[2]
   }
   SEM <- data.frame(letssee,Pollut=unique(test$Pollut_ext)[-10],Dry=unique(test$Dry_ext))
-  
+
   SEMU <- bind_rows(SEMU,SEM)
 }
 
 png(filename = "ScenarioS_STcon.png",width = 4000,height = 4000,units = "px",res =300)
-gridExtra::grid.arrange(
-  gridExtra::grid.arrange(Test_list[[1]]),gridExtra::grid.arrange(Test_list[[2]]),
-  gridExtra::grid.arrange(Test_list[[3]]),gridExtra::grid.arrange(Test_list[[4]]),
-  gridExtra::grid.arrange(Test_list[[5]]),gridExtra::grid.arrange(Test_list[[6]]),
-  gridExtra::grid.arrange(Test_list[[7]]),gridExtra::grid.arrange(Test_list[[8]]),
-  gridExtra::grid.arrange(Test_list[[9]]),gridExtra::grid.arrange(Test_list[[10]]),
-  gridExtra::grid.arrange(Test_list[[11]]))
+do.call("grid.arrange", c(Test_list, ncol=3))
 dev.off()
 
 
@@ -157,18 +141,12 @@ SEMU %>% ggplot()+
   scale_color_viridis(discrete = T,option = "G",direction = -1)+theme_classic()+
   geom_hline(yintercept = 1,colour="red",size=1.2,linetype=2)+
   #geom_hline(yintercept = -1,colour="red",size=1.2,linetype=2)+
-  labs(title="Ratio Sensitive/Tolerant", colour="Pollution",x="Drying extent")+
+  labs(title="IBMWP", colour="Pollution",x="Drying extent")+
   scale_y_continuous(limits = c(-0.5,7))
 
 
 am <- aov(letssee~as.factor(Pollut),data=SEMU)
 TukeyHSD(am)
-
-
-
-
-
-
 
 
 
@@ -208,14 +186,3 @@ Data_To_Plot %>% #filter(Scenario=="0.01_0.01") %>%
   facet_wrap(.~Dry_ext)+
   geom_hline(yintercept=c(0,1),colour="black")+
   theme_classic()+theme(legend.position = "none")
-
-
-
-
-
-
-
-
-
-
-
