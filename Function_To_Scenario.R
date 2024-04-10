@@ -1,4 +1,11 @@
 
+old <- options(stringsAsFactors = FALSE)
+on.exit(options(old))
+
+MSI_Old <- "E:/"
+MSI_New <- "C:/Users/David CM/"
+
+
 # 1. FAKE RIVER CREATION ####
 # with OCNet we create a river with a determined dendritic structure
 library(OCNet)
@@ -6,7 +13,7 @@ library(OCNet)
 # With the following function we create a river of a determined size and charactersitics: 
 # Cellsize sets the size of each cell (pixels) -- We can use this as a proxy of "community size"
 # expEnergy is defining the "branching" of the river in accordance with the size
-ocn_TEST <- create_OCN(dimX = 15,dimY = 15,nOutlet = 1,cellsize = 2, expEnergy=0.5)
+ocn_TEST <- create_OCN(dimX = 10,dimY = 10,nOutlet = 1,cellsize = 2, expEnergy=0.5)
 # Easy function to draw the river
 draw_simple_OCN(ocn_TEST)
 # FD$A defines the size (area actually) of each cell based on each position in the stream (order of the reach)
@@ -43,13 +50,12 @@ for (nodes in 1:nrow(nodes_DaFr)) {
 
 Years_Of_Drying <- 4
 
-diff_extent <- c(0.01,0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.75,0.9,1)
-diff_extent <- tidyr::crossing(diff_extent, diff_extent,diff_extent)
-diff_extent <- diff_extent %>% rename(Dry_Ext=diff_extent...1,
-                                      Pollut_Ext=diff_extent...2,
-                                      Dry_Pattern_Beg=diff_extent...3)
+diff_extent <- c(0.01,0.05,0.1,0.25,0.5,0.75,1)
+diff_extent <- tidyr::crossing(Dry_Ext=diff_extent,
+                               Pollut_Ext=diff_extent,
+                               Dry_Pattern_End=diff_extent)
 
-diff_extent <- diff_extent %>% filter(Dry_Pattern_Beg%in%c(0.1))
+#diff_extent <- diff_extent %>% filter(Dry_Pattern_Beg%in%c(0.1))
 
 Orig_dispersal_pollution <- read.csv2("pollution_dispersal.csv") %>% drop_na()
 
@@ -92,7 +98,7 @@ Plot_A <- ggplot()+
 # favor some of the values)
 source("Function_to_dry.R")
 #duration_for_function <- seq(from=pull(diff_extent[diff_extent_value,3]),to=1,length.out=6)
-duration_for_function <- seq(diff_extent$Dry_Pattern_Beg[diff_extent_value],to=0.9,length.out=6)
+duration_for_function <- seq(diff_extent$Dry_Pattern_End[diff_extent_value],to=0.9,length.out=6)
 Flow_DB <- function_to_dry(River_nodes = nodes_DaFr,
                            years =Years_Of_Drying,days =F,
                            duration =duration_for_function,
@@ -233,6 +239,7 @@ ggplot()+
   labs(title = "",y="",x="",fill="STcon")+
   theme_void()
 
+save.image(file = "PreSTconData.RData")
 
 # 5. STconmat calculation  ####
 # Remember that STcon is able to calculate several rivers at the same time! So you just need to have a list object with the 3 elements 
@@ -307,31 +314,42 @@ for (scen in 1:(length(Riv_Swim$STconmat)-1)) {
 
 # Network structure
 Distances <- as.matrix(dist(nodes_DaFr[,3:4]))
+summary(as.vector(Distances))
 Net_stru <- as.matrix(ocn_TEST$FD$W)
-Net_stru <- ifelse(Distances>0,1,0)
+Net_stru <- ifelse(Distances<5,1,0)
 diag(Net_stru) <- 0
 Net_stru <- replicate(length(Int_dataset), Net_stru, simplify = FALSE)
 # Distance matrix
 Dist_matr <- ((as.matrix(dist(nodes_DaFr[,3:4])))*Net_stru[[1]])
 Dist_matr <- replicate(length(Int_dataset), Dist_matr, simplify = FALSE)
 
-Riv_AerAct <- spat_temp_index(Inermitence_dataset = Int_dataset,
-                             Sites_coordinates=Sit_coordinates,
-                             Network_stru =Net_stru,
-                             direction="undirected", sense = "all",
-                             weighting=T,dist_matrices = Dist_matr,
-                             weighting_links =FALSE,link_weights = NULL,
-                             legacy_effect =1, legacy_lenght = 1,
-                             value_S_LINK=0.1,
-                             value_T_LINK=0.1,
-                             value_NO_S_link=1,
-                             value_NO_T_link=1,
-                             Network_variables=F,print.plots=F,print.directory="Figure/")
-save(list = "Riv_AerAct",file = "Riv_AerAct_STcon.RData")
+for (pos in 345:length(Int_dataset)){
+Int_dataset_temporal <-Int_dataset[pos]
+Sit_coordinates_temporal <- Sit_coordinates[pos]
+Net_stru_temporal <- Net_stru[pos]
+Dist_matr_temporal <- Dist_matr[pos]
+
+Riv_AerAct <- spat_temp_index(Inermitence_dataset = Int_dataset_temporal,
+                              Sites_coordinates=Sit_coordinates_temporal,
+                              Network_stru =Net_stru_temporal,
+                              direction="undirected", sense = "all",
+                              weighting=T,dist_matrices = Dist_matr_temporal,
+                              weighting_links =FALSE,link_weights = NULL,
+                              legacy_effect =1, legacy_lenght = 1,
+                              value_S_LINK=0.1,
+                              value_T_LINK=0.1,
+                              value_NO_S_link=1,
+                              value_NO_T_link=1,
+                              Network_variables=F,print.plots=F,print.directory="Figure/")
+Riv_AerAct_list_outputs[[pos]] <- Riv_AerAct
+save(list = "Riv_AerAct_list_outputs",file = "JustInCase_Temp_Riv_AerAct_STcon.RData")
+}
+length(Riv_AerAct_list_outputs)
+save(list = "Riv_AerAct_list_outputs",file = "Riv_AerAct_STcon.RData")
 
 Scen_AAct_STconmat <- list()
-for (scen in 1:(length(Riv_AerAct$STconmat)-1)) {
-  AAct_STconmat <-Riv_AerAct$STconmat[[scen]]#/Riv_AerAct$STconmat[[length(Int_dataset)]]
+for (scen in 1:(length(Riv_AerAct_list_outputs)-1)) {
+  AAct_STconmat <-Riv_AerAct_list_outputs[[scen]]$STconmat[[1]]#/Riv_AerAct$STconmat[[length(Int_dataset)]]
   #to construct a diagonal matrix
   diag(AAct_STconmat) <- 1
   # if Riv_STconmat is 0 or NaN, write 10000, otherwise write Riv_STconmat
@@ -415,7 +433,7 @@ for (it in 1:5) { # We repeat 10 times the same process
     temp_Metacom = Meta_t0, # Metacommunity at time 0 (all species are equally favored)
     temp_it = 0, # Number of temporal iterations
     id.fixed=NULL, D50.fixed=0, m.max.fixed=0, comm.fixed=pool_200, # If there are some communit. that should be fixed
-    Lottery=T, 
+    Lottery=F, 
     it=100, 
     prop.dead.by.it=0.07, # Lottery parameters, nº iterations and proportion of dead organisms  
     id.obs=1:nrow(nodes_DaFr)) # Information if we would like to keep specific results only
