@@ -57,7 +57,7 @@ diff_extent <- tidyr::crossing(Dry_Ext=diff_extent,
 
 #diff_extent <- diff_extent %>% filter(Dry_Pattern_Beg%in%c(0.1))
 
-Orig_dispersal_pollution <- read.csv2("pollution_dispersal.csv") %>% drop_na()
+Orig_dispersal_pollution <- read.csv2(file = paste0(getwd(), "data/pollution_dispersal.csv")) %>% drop_na()
 
 plots_diagnosis <- list()
 output_to_simulate <- list()
@@ -96,7 +96,8 @@ Plot_A <- ggplot()+
 # skeweed_distr is a modulator for "skewing" the distribution of durations. If all values are 1 it means 
 # that there is the same probability to get any of the duration (it can be useful in case we would like to
 # favor some of the values)
-source("Function_to_dry.R")
+#source("Function_to_dry.R")
+source(file = paste0(getwd(),"/Function_to_dry.R.R"))
 #duration_for_function <- seq(from=pull(diff_extent[diff_extent_value,3]),to=1,length.out=6)
 duration_for_function <- seq(diff_extent$Dry_Pattern_End[diff_extent_value],to=0.9,length.out=6)
 Flow_DB <- function_to_dry(River_nodes = nodes_DaFr,
@@ -129,7 +130,8 @@ Plot_B <- ggplot()+geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend
 Spp_tolerance <- 1.01-(Orig_dispersal_pollution$IBMWP_score/10)
 
 # This function is very similar to the Dry but with less features (distribution is the same)
-source("Function_to_Pollute.R")
+#source("Function_to_Pollute.R")
+source(file = paste0(getwd(),"/Function_to_Pollute.R"))
 filter_Pollution <- function_to_pollute(River_nodes =nodes_DaFr,
                                         Spp_tolerance =Spp_tolerance ,
                                         extent =as.numeric(Poll_extent),
@@ -363,7 +365,8 @@ summary(as.vector(Scen_AAct_STconmat[[3]]))
 summary(as.vector(Scen_Swim_STconmat[[3]]))
 summary(as.vector(Scen_Drift_STconmat[[3]]))
 
-source("H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R")
+#source("H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R")
+source(file = paste0(getwd(),"/H2020_Lattice_expKernel_Jenv_TempMeta.R"))
 ###__________________________________
 ### WE BEGUN TO built all the data that we need to run the simulation
 ## Distance matrix 
