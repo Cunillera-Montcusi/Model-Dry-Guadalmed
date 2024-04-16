@@ -1,9 +1,9 @@
 
-old <- options(stringsAsFactors = FALSE)
-on.exit(options(old))
-
-MSI_Old <- "E:/"
-MSI_New <- "C:/Users/David CM/"
+# old <- options(stringsAsFactors = FALSE)
+# on.exit(options(old))
+# 
+# MSI_Old <- "E:/"
+# MSI_New <- "C:/Users/David CM/"
 
 
 # 1. FAKE RIVER CREATION ####
@@ -57,7 +57,8 @@ diff_extent <- tidyr::crossing(Dry_Ext=diff_extent,
 
 #diff_extent <- diff_extent %>% filter(Dry_Pattern_Beg%in%c(0.1))
 
-Orig_dispersal_pollution <- read.csv2(file = paste0(getwd(), "data/pollution_dispersal.csv")) %>% drop_na()
+
+Orig_dispersal_pollution <- read.csv(file = paste0(getwd(), "/data/pollution_dispersal.csv")) %>% drop_na()
 
 plots_diagnosis <- list()
 output_to_simulate <- list()
@@ -97,7 +98,7 @@ Plot_A <- ggplot()+
 # that there is the same probability to get any of the duration (it can be useful in case we would like to
 # favor some of the values)
 #source("Function_to_dry.R")
-source(file = paste0(getwd(),"/Function_to_dry.R.R"))
+source(file = paste0(getwd(),"/Function_to_dry.R"))
 #duration_for_function <- seq(from=pull(diff_extent[diff_extent_value,3]),to=1,length.out=6)
 duration_for_function <- seq(diff_extent$Dry_Pattern_End[diff_extent_value],to=0.9,length.out=6)
 Flow_DB <- function_to_dry(River_nodes = nodes_DaFr,
@@ -168,10 +169,14 @@ Poll_Dry_Inter <- drying_ranges/max(drying_ranges)
 Poll_Dry_Inter <- ifelse(Poll_Dry_Inter==1,0.99,Poll_Dry_Inter)
 Poll_Dry_Inter <- ifelse(Poll_Dry_Inter==0,0.0001,Poll_Dry_Inter)
 for (dry_range in 1:length(drying_ranges)) {
-if (drying_ranges[dry_range]==0) {Modif_Spp_tolerance <- rep(0,length(Spp_tolerance))}else{
-Modif_Spp_tolerance <- Spp_tolerance^(drying_ranges[dry_range]/max(nodes_DaFr$Permanence))}
-Dry_and_Poll_Spp_tolerance <- scales::rescale(Modif_Spp_tolerance,to=c(min(Spp_tolerance),max(Spp_tolerance)))
-filter_Pollution[,which(Pollution=="YES_Poll" & nodes_DaFr$Permanence==drying_ranges[dry_range])] <- Dry_and_Poll_Spp_tolerance
+  if (drying_ranges[dry_range]==0) {
+    Modif_Spp_tolerance <- rep(0,length(Spp_tolerance))
+  }else{
+    Modif_Spp_tolerance <- Spp_tolerance^(drying_ranges[dry_range]/max(nodes_DaFr$Permanence))
+  }
+
+  Dry_and_Poll_Spp_tolerance <- scales::rescale(Modif_Spp_tolerance,to=c(min(Spp_tolerance),max(Spp_tolerance)))
+  filter_Pollution[,which(Pollution=="YES_Poll" & nodes_DaFr$Permanence==drying_ranges[dry_range])] <- Dry_and_Poll_Spp_tolerance
 }
 filter_Pollution_test <- t(filter_Pollution)
 colnames(filter_Pollution_test) <- paste(seq(1:length(Spp_tolerance)),"Spe",sep="_")
@@ -226,22 +231,7 @@ gridExtra::grid.arrange(plots_diagnosis[[84]][[1]])
 
 save(plots_diagnosis,file = "Diagnosis_Plots.RData")
 
-ggplot()+
-  geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord),
-               arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
-  geom_point(data=nodes_DaFr, aes(x=x, y=y,
-                                  fill=Riv_Swim$STcon[[121]]/Riv_Swim$STcon[[122]],
-                                  size=1,
-                                  shape=Pollution,
-                                  colour=Pollution))+
-  scale_fill_viridis(option = "D",discrete = F,direction = 1)+
-  scale_color_manual(values = c("black","red"))+
-  scale_shape_manual(values=c(21,22))+
-  scale_size(guide = "none") +
-  labs(title = "",y="",x="",fill="STcon")+
-  theme_void()
-
-save.image(file = "PreSTconData.RData")
+# save.image(file = "PreSTconData.RData")
 
 # 5. STconmat calculation  ####
 # Remember that STcon is able to calculate several rivers at the same time! So you just need to have a list object with the 3 elements 
@@ -304,6 +294,23 @@ Riv_Swim <- spat_temp_index(Inermitence_dataset = Int_dataset,
                              Network_variables=F,print.plots=F,print.directory="Figure/")
 save(list = "Riv_Swim",file = "Riv_Swim_STcon.RData")
 
+
+
+ggplot()+
+  geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord),
+               arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
+  geom_point(data=nodes_DaFr, aes(x=x, y=y,
+                                  fill=Riv_Swim$STcon[[121]]/Riv_Swim$STcon[[122]],
+                                  size=1,
+                                  shape=Pollution,
+                                  colour=Pollution))+
+  scale_fill_viridis(option = "D",discrete = F,direction = 1)+
+  scale_color_manual(values = c("black","red"))+
+  scale_shape_manual(values=c(21,22))+
+  scale_size(guide = "none") +
+  labs(title = "",y="",x="",fill="STcon")+
+  theme_void()
+
 Scen_Swim_STconmat <- list()
 for (scen in 1:(length(Riv_Swim$STconmat)-1)) {
   Swim_STconmat <-Riv_Swim$STconmat[[scen]]#/Riv_Swim$STconmat[[length(Int_dataset)]]
@@ -325,26 +332,27 @@ Net_stru <- replicate(length(Int_dataset), Net_stru, simplify = FALSE)
 Dist_matr <- ((as.matrix(dist(nodes_DaFr[,3:4])))*Net_stru[[1]])
 Dist_matr <- replicate(length(Int_dataset), Dist_matr, simplify = FALSE)
 
-for (pos in 345:length(Int_dataset)){
-Int_dataset_temporal <-Int_dataset[pos]
-Sit_coordinates_temporal <- Sit_coordinates[pos]
-Net_stru_temporal <- Net_stru[pos]
-Dist_matr_temporal <- Dist_matr[pos]
-
-Riv_AerAct <- spat_temp_index(Inermitence_dataset = Int_dataset_temporal,
-                              Sites_coordinates=Sit_coordinates_temporal,
-                              Network_stru =Net_stru_temporal,
-                              direction="undirected", sense = "all",
-                              weighting=T,dist_matrices = Dist_matr_temporal,
-                              weighting_links =FALSE,link_weights = NULL,
-                              legacy_effect =1, legacy_lenght = 1,
-                              value_S_LINK=0.1,
-                              value_T_LINK=0.1,
-                              value_NO_S_link=1,
-                              value_NO_T_link=1,
-                              Network_variables=F,print.plots=F,print.directory="Figure/")
-Riv_AerAct_list_outputs[[pos]] <- Riv_AerAct
-save(list = "Riv_AerAct_list_outputs",file = "JustInCase_Temp_Riv_AerAct_STcon.RData")
+Riv_AerAct_list_outputs <- list()
+for (pos in 1:length(Int_dataset)){
+  Int_dataset_temporal <-Int_dataset[pos]
+  Sit_coordinates_temporal <- Sit_coordinates[pos]
+  Net_stru_temporal <- Net_stru[pos]
+  Dist_matr_temporal <- Dist_matr[pos]
+  
+  Riv_AerAct <- spat_temp_index(Inermitence_dataset = Int_dataset_temporal,
+                                Sites_coordinates=Sit_coordinates_temporal,
+                                Network_stru =Net_stru_temporal,
+                                direction="undirected", sense = "all",
+                                weighting=T,dist_matrices = Dist_matr_temporal,
+                                weighting_links =FALSE,link_weights = NULL,
+                                legacy_effect =1, legacy_lenght = 1,
+                                value_S_LINK=0.1,
+                                value_T_LINK=0.1,
+                                value_NO_S_link=1,
+                                value_NO_T_link=1,
+                                Network_variables=F,print.plots=F,print.directory="Figure/")
+  Riv_AerAct_list_outputs[[pos]] <- Riv_AerAct
+  save(list = "Riv_AerAct_list_outputs",file = "JustInCase_Temp_Riv_AerAct_STcon.RData")
 }
 length(Riv_AerAct_list_outputs)
 save(list = "Riv_AerAct_list_outputs",file = "Riv_AerAct_STcon.RData")
@@ -360,6 +368,7 @@ for (scen in 1:(length(Riv_AerAct_list_outputs)-1)) {
 }
 tictoc::toc()
 # 81057.89
+
 
 summary(as.vector(Scen_AAct_STconmat[[3]]))
 summary(as.vector(Scen_Swim_STconmat[[3]]))
