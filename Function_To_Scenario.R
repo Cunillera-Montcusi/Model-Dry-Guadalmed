@@ -231,7 +231,6 @@ gridExtra::grid.arrange(plots_diagnosis[[84]][[1]])
 
 save(plots_diagnosis,file = "Diagnosis_Plots.RData")
 
-
 # 5. STconmat calculation  ####
 # Remember that STcon is able to calculate several rivers at the same time! So you just need to have a list object with the 3 elements 
 # for each river scenario: 
@@ -239,7 +238,7 @@ save(plots_diagnosis,file = "Diagnosis_Plots.RData")
 # We save the objects to send to the SLURM running cluster
 
 Net_stru_RAW <- as.matrix(ocn_TEST$FD$W)
-save(Flow_DB_toSTcon,g,Net_stru_RAW,nodes_DaFr,file="SLURM_PreSTcon.RData" )
+save(Flow_DB_toSTcon,g,Net_stru_RAW,nodes_DaFr,file="Cluster_Code/SLURM_PreSTcon.RData" )
 
 library(igraph)
 # Intermittence database
