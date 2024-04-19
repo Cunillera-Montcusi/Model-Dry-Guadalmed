@@ -1,9 +1,9 @@
 
-old <- options(stringsAsFactors = FALSE)
-on.exit(options(old))
-
-MSI_Old <- "E:/"
-MSI_New <- "C:/Users/David CM/"
+# old <- options(stringsAsFactors = FALSE)
+# on.exit(options(old))
+# 
+# MSI_Old <- "E:/"
+# MSI_New <- "C:/Users/David CM/"
 
 
 # 1. FAKE RIVER CREATION ####
@@ -57,7 +57,8 @@ diff_extent <- tidyr::crossing(Dry_Ext=diff_extent,
 
 diff_extent <- diff_extent %>% filter(Dry_Pattern_End%in%c(0.01,0.25,0.75))
 
-Orig_dispersal_pollution <- read.csv2("pollution_dispersal.csv") %>% drop_na()
+
+Orig_dispersal_pollution <- read.csv(file = paste0(getwd(), "/data/pollution_dispersal.csv")) %>% drop_na()
 
 plots_diagnosis <- list()
 output_to_simulate <- list()
@@ -96,7 +97,8 @@ Plot_A <- ggplot()+
 # skeweed_distr is a modulator for "skewing" the distribution of durations. If all values are 1 it means 
 # that there is the same probability to get any of the duration (it can be useful in case we would like to
 # favor some of the values)
-source("Function_to_dry.R")
+#source("Function_to_dry.R")
+source(file = paste0(getwd(),"/Function_to_dry.R"))
 #duration_for_function <- seq(from=pull(diff_extent[diff_extent_value,3]),to=1,length.out=6)
 duration_for_function <- seq(diff_extent$Dry_Pattern_End[diff_extent_value],to=1,length.out=6)
 
@@ -129,7 +131,8 @@ Plot_B <- ggplot()+geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend
 Spp_tolerance <- 1.01-(Orig_dispersal_pollution$IBMWP_score/10)
 
 # This function is very similar to the Dry but with less features (distribution is the same)
-source("Function_to_Pollute.R")
+#source("Function_to_Pollute.R")
+source(file = paste0(getwd(),"/Function_to_Pollute.R"))
 filter_Pollution <- function_to_pollute(River_nodes =nodes_DaFr,
                                         Spp_tolerance =Spp_tolerance ,
                                         extent =as.numeric(Poll_extent),
@@ -166,10 +169,14 @@ Poll_Dry_Inter <- drying_ranges/max(drying_ranges)
 Poll_Dry_Inter <- ifelse(Poll_Dry_Inter==1,0.99,Poll_Dry_Inter)
 Poll_Dry_Inter <- ifelse(Poll_Dry_Inter==0,0.0001,Poll_Dry_Inter)
 for (dry_range in 1:length(drying_ranges)) {
-if (drying_ranges[dry_range]==0) {Modif_Spp_tolerance <- rep(0,length(Spp_tolerance))}else{
-Modif_Spp_tolerance <- Spp_tolerance^(drying_ranges[dry_range]/max(nodes_DaFr$Permanence))}
-Dry_and_Poll_Spp_tolerance <- scales::rescale(Modif_Spp_tolerance,to=c(min(Spp_tolerance),max(Spp_tolerance)))
-filter_Pollution[,which(Pollution=="YES_Poll" & nodes_DaFr$Permanence==drying_ranges[dry_range])] <- Dry_and_Poll_Spp_tolerance
+  if (drying_ranges[dry_range]==0) {
+    Modif_Spp_tolerance <- rep(0,length(Spp_tolerance))
+  }else{
+    Modif_Spp_tolerance <- Spp_tolerance^(drying_ranges[dry_range]/max(nodes_DaFr$Permanence))
+  }
+
+  Dry_and_Poll_Spp_tolerance <- scales::rescale(Modif_Spp_tolerance,to=c(min(Spp_tolerance),max(Spp_tolerance)))
+  filter_Pollution[,which(Pollution=="YES_Poll" & nodes_DaFr$Permanence==drying_ranges[dry_range])] <- Dry_and_Poll_Spp_tolerance
 }
 filter_Pollution_test <- t(filter_Pollution)
 colnames(filter_Pollution_test) <- paste(seq(1:length(Spp_tolerance)),"Spe",sep="_")
@@ -224,22 +231,6 @@ gridExtra::grid.arrange(plots_diagnosis[[84]][[1]])
 
 save(plots_diagnosis,file = "Diagnosis_Plots.RData")
 
-ggplot()+
-  geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord),
-               arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
-  geom_point(data=nodes_DaFr, aes(x=x, y=y,
-                                  fill=Riv_Swim$STcon[[121]]/Riv_Swim$STcon[[122]],
-                                  size=1,
-                                  shape=Pollution,
-                                  colour=Pollution))+
-  scale_fill_viridis(option = "D",discrete = F,direction = 1)+
-  scale_color_manual(values = c("black","red"))+
-  scale_shape_manual(values=c(21,22))+
-  scale_size(guide = "none") +
-  labs(title = "",y="",x="",fill="STcon")+
-  theme_void()
-
-save.image(file = " ")
 
 # 5. STconmat calculation  ####
 # Remember that STcon is able to calculate several rivers at the same time! So you just need to have a list object with the 3 elements 
@@ -296,6 +287,33 @@ Riv_Swim <- spat_temp_index(Inermitence_dataset = Int_dataset,
                              value_NO_T_link=1,
                              Network_variables=F,print.plots=F,print.directory="Figure/")
 save(list = "Riv_Swim",file = "Riv_Swim_STcon.RData")
+
+
+
+ggplot()+
+  geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord),
+               arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
+  geom_point(data=nodes_DaFr, aes(x=x, y=y,
+                                  fill=Riv_Swim$STcon[[121]]/Riv_Swim$STcon[[122]],
+                                  size=1,
+                                  shape=Pollution,
+                                  colour=Pollution))+
+  scale_fill_viridis(option = "D",discrete = F,direction = 1)+
+  scale_color_manual(values = c("black","red"))+
+  scale_shape_manual(values=c(21,22))+
+  scale_size(guide = "none") +
+  labs(title = "",y="",x="",fill="STcon")+
+  theme_void()
+
+Scen_Swim_STconmat <- list()
+for (scen in 1:(length(Riv_Swim$STconmat)-1)) {
+  Swim_STconmat <-Riv_Swim$STconmat[[scen]]#/Riv_Swim$STconmat[[length(Int_dataset)]]
+  #to construct a diagonal matrix
+  diag(Swim_STconmat) <- 1
+  # if Riv_STconmat is 0 or NaN, write 10000, otherwise write Riv_STconmat
+  Scen_Swim_STconmat[[scen]] <-ifelse(Swim_STconmat==0,100,Swim_STconmat)
+  #Scen_Swim_STconmat[[scen]] <-ifelse(is.nan(Swim_STconmat)==T,100,Swim_STconmat)
+}
 
 # Network structure
 Distances <- as.matrix(dist(nodes_DaFr[,3:4]))
@@ -359,12 +377,18 @@ for (scen in 1:(length(Riv_AerAct$STconmat)-1)) {
   #Scen_Swim_STconmat[[scen]] <-ifelse(is.nan(Swim_STconmat)==T,100,Swim_STconmat)
 }
 
+
 summary(as.vector(Scen_AAct_STconmat[[3]]))
 summary(as.vector(Scen_Swim_STconmat[[3]]))
 summary(as.vector(Scen_Drift_STconmat[[3]]))
 
 
+
 source("H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R")
+
+#source("H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R")
+source(file = paste0(getwd(),"/H2020_Lattice_expKernel_Jenv_TempMeta.R"))
+
 ###__________________________________
 ### WE BEGUN TO built all the data that we need to run the simulation
 ## Distance matrix 
