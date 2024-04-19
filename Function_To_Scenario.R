@@ -244,6 +244,12 @@ save.image(file = " ")
 # 5. STconmat calculation  ####
 # Remember that STcon is able to calculate several rivers at the same time! So you just need to have a list object with the 3 elements 
 # for each river scenario: 
+
+# We save the objects to send to the SLURM running cluster
+
+Net_stru_RAW <- as.matrix(ocn_TEST$FD$W)
+save(Flow_DB_toSTcon,g,Net_stru_RAW,nodes_DaFr,file="SLURM_PreSTcon.RData" )
+
 library(igraph)
 # Intermittence database
 Flow_DB_toSTcon[[length(Flow_DB_toSTcon)+1]] <- ifelse(Flow_DB_toSTcon[[1]]==0,1,Flow_DB_toSTcon[[1]])
@@ -252,7 +258,7 @@ Int_dataset <- Flow_DB_toSTcon
 Sit_coordinates <- nodes_DaFr[,c(1:4)]
 Sit_coordinates <- replicate(length(Int_dataset), Sit_coordinates, simplify = FALSE)
 # Network structure
-Net_stru <- as.matrix(ocn_TEST$FD$W)
+Net_stru <- Net_stru_RAW
 Net_stru <- replicate(length(Int_dataset), Net_stru, simplify = FALSE)
 # Distance matrix
 Dist_matr <- distances(g)#((as.matrix(dist(nodes_DaFr[,3:4])))*as.matrix(ocn_TEST$FD$W))
@@ -294,7 +300,7 @@ save(list = "Riv_Swim",file = "Riv_Swim_STcon.RData")
 # Network structure
 Distances <- as.matrix(dist(nodes_DaFr[,3:4]))
 summary(as.vector(Distances))
-Net_stru <- as.matrix(ocn_TEST$FD$W)
+Net_stru <- Net_stru_RAW
 Net_stru <- ifelse(Distances<5,1,0)
 diag(Net_stru) <- 0
 Net_stru <- replicate(length(Int_dataset), Net_stru, simplify = FALSE)
@@ -385,7 +391,7 @@ Meta_t0 <- matrix(nrow = length(pool_200), ncol =nrow(nodes_DaFr), 1) #Previous 
 # other dispersal abilities. They push "overall connectivity" towards higher or lower connections.
 #summary(as.vector(Scen_Swim_STconmat[[pollut]])[-which(as.vector(Scen_Swim_STconmat[[pollut]])==100)]) 
 
-dispersal_test <- c(0.15,1) # We set the dispersal abilities that we want
+dispersal_test <- c(0.15) # We set the dispersal abilities that we want
 
 Disp_Str <- Orig_dispersal_pollution%>% 
   mutate(Disp_Strateg=case_when(
@@ -407,6 +413,7 @@ Diff_scenarios <- foreach(dispersal=1:length(dispersal_test), .combine=rbind)%:%
 FW_area <- output_to_simulate[[10]][[2]]$Permanence#*output_to_simulate[[pollut]][[2]]$weight
 J.freshwater<-ceiling((-Jmin+(J.max/(Max_Area^b.ef))*FW_area^b.ef))
 plot(FW_area,J.freshwater)
+J.freshwater <- ifelse(J.freshwater<0,20,J.freshwater)
                     
 a <- NULL # We create an output object for each iteration
 #b <- list()
@@ -438,7 +445,7 @@ for (it in 1:5) { # We repeat 10 times the same process
 resume.out(a)
 }
 toc()
-save(Diff_scenarios,file = "Diff_scenarios_Good.RData")
+save(Diff_scenarios,file = "Diff_scenarios_75.RData")
 save(output_to_simulate, file="Raw_Data_To_Simul_Good.RData")
 # 13593.65 
 
@@ -495,7 +502,7 @@ for (round in 1:(Leng_scenarios*leng_disp)) {
                                     "S"=S_site,"B"=B_site))
   Res_nodes_DaFr <- bind_rows(Res_nodes_DaFr,Result_df)
 }
-save(Res_nodes_DaFr,file="Results_Good_scenarios.RData")
+save(Res_nodes_DaFr,file="Results_75_scenarios.RData")
 
 
 # 6. Plots and results outputs ####
