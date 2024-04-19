@@ -50,12 +50,12 @@ for (nodes in 1:nrow(nodes_DaFr)) {
 
 Years_Of_Drying <- 4
 
-diff_extent <- c(0.01,0.05,0.1,0.25,0.5,0.75,1)
+diff_extent <- c(0.01,0.1,0.25,0.5,0.75)
 diff_extent <- tidyr::crossing(Dry_Ext=diff_extent,
                                Pollut_Ext=diff_extent,
                                Dry_Pattern_End=diff_extent)
 
-#diff_extent <- diff_extent %>% filter(Dry_Pattern_Beg%in%c(0.1))
+diff_extent <- diff_extent %>% filter(Dry_Pattern_End%in%c(0.01,0.25,0.75))
 
 Orig_dispersal_pollution <- read.csv2("pollution_dispersal.csv") %>% drop_na()
 
@@ -98,7 +98,8 @@ Plot_A <- ggplot()+
 # favor some of the values)
 source("Function_to_dry.R")
 #duration_for_function <- seq(from=pull(diff_extent[diff_extent_value,3]),to=1,length.out=6)
-duration_for_function <- seq(diff_extent$Dry_Pattern_End[diff_extent_value],to=0.9,length.out=6)
+duration_for_function <- seq(diff_extent$Dry_Pattern_End[diff_extent_value],to=1,length.out=6)
+
 Flow_DB <- function_to_dry(River_nodes = nodes_DaFr,
                            years =Years_Of_Drying,days =F,
                            duration =duration_for_function,
@@ -124,7 +125,6 @@ Plot_B <- ggplot()+geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend
 
 
 # 3. Pollutino assignation  ####
-
 #Spp_tolerance <- c(rep(0.5,50),rep(0.65,50),rep(0.75,50),rep(0.8,50))
 Spp_tolerance <- 1.01-(Orig_dispersal_pollution$IBMWP_score/10)
 
@@ -239,12 +239,12 @@ ggplot()+
   labs(title = "",y="",x="",fill="STcon")+
   theme_void()
 
-save.image(file = "PreSTconData.RData")
+save.image(file = " ")
 
 # 5. STconmat calculation  ####
 # Remember that STcon is able to calculate several rivers at the same time! So you just need to have a list object with the 3 elements 
 # for each river scenario: 
-
+library(igraph)
 # Intermittence database
 Flow_DB_toSTcon[[length(Flow_DB_toSTcon)+1]] <- ifelse(Flow_DB_toSTcon[[1]]==0,1,Flow_DB_toSTcon[[1]])
 Int_dataset <- Flow_DB_toSTcon
@@ -258,7 +258,6 @@ Net_stru <- replicate(length(Int_dataset), Net_stru, simplify = FALSE)
 Dist_matr <- distances(g)#((as.matrix(dist(nodes_DaFr[,3:4])))*as.matrix(ocn_TEST$FD$W))
 Dist_matr <- replicate(length(Int_dataset), Dist_matr, simplify = FALSE)
 
-tictoc::tic()
 #some library to be needed
 library(shp2graph)
 library(doParallel)
@@ -278,16 +277,6 @@ Riv_Drift <- spat_temp_index(Inermitence_dataset = Int_dataset,
                            Network_variables=F,print.plots=F,print.directory="Figure/")
 save(list = "Riv_Drift",file = "Riv_Drift_STcon.RData")
 
-Scen_Drift_STconmat <- list()
-for (scen in 1:(length(Riv_Drift$STconmat)-1)) {
-  Drift_STconmat <-Riv_Drift$STconmat[[scen]]#/Riv_Drift$STconmat[[length(Int_dataset)]]
-  #to construct a diagonal matrix
-  diag(Drift_STconmat) <- 1
-  # if Riv_STconmat is 0, write 10000, otherwise write Riv_STconmat
-  Scen_Drift_STconmat[[scen]] <-ifelse(Drift_STconmat==0,100,Drift_STconmat)
-  #Scen_Drift_STconmat[[scen]] <-ifelse(is.nan(Drift_STconmat)==T,100,Drift_STconmat)
-}
-
 Riv_Swim <- spat_temp_index(Inermitence_dataset = Int_dataset,
                              Sites_coordinates=Sit_coordinates,
                              Network_stru =Net_stru,
@@ -302,16 +291,6 @@ Riv_Swim <- spat_temp_index(Inermitence_dataset = Int_dataset,
                              Network_variables=F,print.plots=F,print.directory="Figure/")
 save(list = "Riv_Swim",file = "Riv_Swim_STcon.RData")
 
-Scen_Swim_STconmat <- list()
-for (scen in 1:(length(Riv_Swim$STconmat)-1)) {
-  Swim_STconmat <-Riv_Swim$STconmat[[scen]]#/Riv_Swim$STconmat[[length(Int_dataset)]]
-  #to construct a diagonal matrix
-  diag(Swim_STconmat) <- 1
-  # if Riv_STconmat is 0 or NaN, write 10000, otherwise write Riv_STconmat
-  Scen_Swim_STconmat[[scen]] <-ifelse(Swim_STconmat==0,100,Swim_STconmat)
-  #Scen_Swim_STconmat[[scen]] <-ifelse(is.nan(Swim_STconmat)==T,100,Swim_STconmat)
-}
-
 # Network structure
 Distances <- as.matrix(dist(nodes_DaFr[,3:4]))
 summary(as.vector(Distances))
@@ -323,17 +302,11 @@ Net_stru <- replicate(length(Int_dataset), Net_stru, simplify = FALSE)
 Dist_matr <- ((as.matrix(dist(nodes_DaFr[,3:4])))*Net_stru[[1]])
 Dist_matr <- replicate(length(Int_dataset), Dist_matr, simplify = FALSE)
 
-for (pos in 345:length(Int_dataset)){
-Int_dataset_temporal <-Int_dataset[pos]
-Sit_coordinates_temporal <- Sit_coordinates[pos]
-Net_stru_temporal <- Net_stru[pos]
-Dist_matr_temporal <- Dist_matr[pos]
-
-Riv_AerAct <- spat_temp_index(Inermitence_dataset = Int_dataset_temporal,
-                              Sites_coordinates=Sit_coordinates_temporal,
-                              Network_stru =Net_stru_temporal,
+Riv_AerAct <- spat_temp_index(Inermitence_dataset = Int_dataset,
+                              Sites_coordinates=Sit_coordinates,
+                              Network_stru =Net_stru,
                               direction="undirected", sense = "all",
-                              weighting=T,dist_matrices = Dist_matr_temporal,
+                              weighting=T,dist_matrices = Dist_matr,
                               weighting_links =FALSE,link_weights = NULL,
                               legacy_effect =1, legacy_lenght = 1,
                               value_S_LINK=0.1,
@@ -341,27 +314,49 @@ Riv_AerAct <- spat_temp_index(Inermitence_dataset = Int_dataset_temporal,
                               value_NO_S_link=1,
                               value_NO_T_link=1,
                               Network_variables=F,print.plots=F,print.directory="Figure/")
-Riv_AerAct_list_outputs[[pos]] <- Riv_AerAct
-save(list = "Riv_AerAct_list_outputs",file = "JustInCase_Temp_Riv_AerAct_STcon.RData")
+
+save(list = "Riv_AerAct",file = "Riv_AerAct_STcon.RData")
+
+
+# After running in the server we reload the data and prepare it for the model 
+load("Riv_Drift_STcon.RData")
+load("Riv_Swim_STcon.RData")
+load("Riv_AerAct_STcon.RData")
+
+Scen_Drift_STconmat <- list()
+for (scen in 1:(length(Riv_Drift$STconmat)-1)) {
+  Drift_STconmat <-Riv_Drift$STconmat[[scen]]#/Riv_Drift$STconmat[[length(Int_dataset)]]
+  #to construct a diagonal matrix
+  diag(Drift_STconmat) <- 1
+  # if Riv_STconmat is 0, write 10000, otherwise write Riv_STconmat
+  Scen_Drift_STconmat[[scen]] <-ifelse(Drift_STconmat==0,100,Drift_STconmat)
+  #Scen_Drift_STconmat[[scen]] <-ifelse(is.nan(Drift_STconmat)==T,100,Drift_STconmat)
 }
-length(Riv_AerAct_list_outputs)
-save(list = "Riv_AerAct_list_outputs",file = "Riv_AerAct_STcon.RData")
+
+Scen_Swim_STconmat <- list()
+for (scen in 1:(length(Riv_Swim$STconmat)-1)) {
+  Swim_STconmat <-Riv_Swim$STconmat[[scen]]#/Riv_Swim$STconmat[[length(Int_dataset)]]
+  #to construct a diagonal matrix
+  diag(Swim_STconmat) <- 1
+  # if Riv_STconmat is 0 or NaN, write 10000, otherwise write Riv_STconmat
+  Scen_Swim_STconmat[[scen]] <-ifelse(Swim_STconmat==0,100,Swim_STconmat)
+  #Scen_Swim_STconmat[[scen]] <-ifelse(is.nan(Swim_STconmat)==T,100,Swim_STconmat)
+}
 
 Scen_AAct_STconmat <- list()
-for (scen in 1:(length(Riv_AerAct_list_outputs)-1)) {
-  AAct_STconmat <-Riv_AerAct_list_outputs[[scen]]$STconmat[[1]]#/Riv_AerAct$STconmat[[length(Int_dataset)]]
+for (scen in 1:(length(Riv_AerAct$STconmat)-1)) {
+  AAct_STconmat <-Riv_AerAct$STconmat[[scen]]#/Riv_Swim$STconmat[[length(Int_dataset)]]
   #to construct a diagonal matrix
   diag(AAct_STconmat) <- 1
   # if Riv_STconmat is 0 or NaN, write 10000, otherwise write Riv_STconmat
   Scen_AAct_STconmat[[scen]] <-ifelse(AAct_STconmat==0,100,AAct_STconmat)
-  #Scen_AAct_STconmat[[scen]] <-ifelse(is.nan(AAct_STconmat)==T,100,AAct_STconmat)
+  #Scen_Swim_STconmat[[scen]] <-ifelse(is.nan(Swim_STconmat)==T,100,Swim_STconmat)
 }
-tictoc::toc()
-# 81057.89
 
 summary(as.vector(Scen_AAct_STconmat[[3]]))
 summary(as.vector(Scen_Swim_STconmat[[3]]))
 summary(as.vector(Scen_Drift_STconmat[[3]]))
+
 
 source("H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R")
 ###__________________________________
