@@ -13,7 +13,7 @@ library(OCNet)
 # With the following function we create a river of a determined size and charactersitics: 
 # Cellsize sets the size of each cell (pixels) -- We can use this as a proxy of "community size"
 # expEnergy is defining the "branching" of the river in accordance with the size
-ocn_TEST <- create_OCN(dimX = 10,dimY = 10,nOutlet = 1,cellsize = 2, expEnergy=0.5)
+ocn_TEST <- create_OCN(dimX = 15,dimY = 15,nOutlet = 1,cellsize = 2, expEnergy=0.5)
 # Easy function to draw the river
 draw_simple_OCN(ocn_TEST)
 # FD$A defines the size (area actually) of each cell based on each position in the stream (order of the reach)
@@ -48,6 +48,16 @@ for (nodes in 1:nrow(nodes_DaFr)) {
   edges_DaFr[which(edges_DaFr$to==nodes),6] <- nodes_DaFr[nodes,]$y
 }
 
+# We plot our beloved river colored according to the weight (order)/community size
+Plot_A <- ggplot()+
+  geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord), 
+               arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
+  geom_point(data=nodes_DaFr, aes(x=x, y=y,fill=weight/120000,size=weight/120000), shape=21)+ # here weight/12000 is random decision for plotting
+  scale_fill_viridis(option = "D",discrete = F)+
+  scale_size(guide = "none") +
+  labs(title = "River structure",y="",x="",fill="Comm. Size")+
+  theme_void()
+
 Years_Of_Drying <- 4
 
 diff_extent <- c(0.01,0.1,0.25,0.5,0.75)
@@ -58,32 +68,23 @@ diff_extent <- tidyr::crossing(Dry_Ext=diff_extent,
 diff_extent <- diff_extent %>% filter(Dry_Pattern_End%in%c(0.01,0.25,0.75))
 
 
-Orig_dispersal_pollution <- read.csv(file = paste0(getwd(), "/data/pollution_dispersal.csv")) %>% drop_na()
-
-plots_diagnosis <- list()
-output_to_simulate <- list()
 Flow_DB_toSTcon <- list()
-for (diff_extent_value in 1:nrow(diff_extent)) {
-Dry_extent <- diff_extent$Dry_Ext[diff_extent_value]
-Poll_extent <- diff_extent$Pollut_Ext[diff_extent_value]
+Dry_nodes_DaFr <- nodes_DaFr
+Dry_DataFrame_out <- list()
 
-nodes_DaFr <- data.frame(
-  "Scenario"=paste(Dry_extent,Poll_extent,sep="_"),
-  "Site_ID"=1:length(ocn_TEST$FD$X),
-  "x"=ocn_TEST$FD$X,
-  "y"=ocn_TEST$FD$Y,
-  "weight"=ocn_TEST$FD$A)
-# We plot our beloved river colored according to the weight (order)/community size
-Plot_A <- ggplot()+
-  geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord), 
-               arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
-  geom_point(data=nodes_DaFr, aes(x=x, y=y,fill=weight/120000,size=weight/120000), shape=21)+ # here weight/12000 is random decision for plotting
-  scale_fill_viridis(option = "D",discrete = F)+
-  scale_size(guide = "none") +
-  labs(title = paste("Scenario",Dry_extent,Poll_extent,sep="_"),
-       y="",x="",fill="Comm. Size")+
-  theme_void()
+# Here we decide the extent of drying
+Sites_to_Dry<- list()
+Selected_Sites <- sample(nodes_DaFr$Site_ID,size = length(nodes_DaFr$Site_ID),replace = F)
+for (Sit_To_Dry in 1:length(unique(diff_extent$Dry_Ext))) {
+Sites_to_Dry[[Sit_To_Dry]] <-Selected_Sites[1:ceiling(nrow(nodes_DaFr)*unique(diff_extent$Dry_Ext)[Sit_To_Dry])] 
+}
 
+for (diff_extent_value in 1:(length(unique(diff_extent$Dry_Ext))*length(unique(diff_extent$Dry_Pattern_End)))) {
+Dry_extent <- 1
+
+Dry_diff_extent <- tidyr::crossing(Dry_Ext=unique(diff_extent$Dry_Ext),Dry_Pattern_End=unique(diff_extent$Dry_Pattern_End))
+
+Sites_to_Dry_Position <- which(unique(diff_extent$Dry_Ext)==as.numeric(Dry_diff_extent[diff_extent_value,1]))
 
 # 2. Drying pattern  ####
 # Drying patterns are incorporated following different criteria
@@ -100,71 +101,112 @@ Plot_A <- ggplot()+
 #source("Function_to_dry.R")
 source(file = paste0(getwd(),"/Function_to_dry.R"))
 #duration_for_function <- seq(from=pull(diff_extent[diff_extent_value,3]),to=1,length.out=6)
-duration_for_function <- seq(diff_extent$Dry_Pattern_End[diff_extent_value],to=1,length.out=6)
+duration_for_function <- 1-seq(diff_extent$Dry_Pattern_End[diff_extent_value],to=0.9,length.out=6)
 
-Flow_DB <- function_to_dry(River_nodes = nodes_DaFr,
+Flow_DB <- function_to_dry(River_nodes = Dry_nodes_DaFr,
                            years =Years_Of_Drying,days =F,
                            duration =duration_for_function,
                            duration_constancy = F,
                            extent =as.numeric(Dry_extent),
-                           distribution =NULL,
-                           skeweed_distr = c(3,2,2,1,1,0.5))#rep(1,6))
+                           distribution =Sites_to_Dry[[Sites_to_Dry_Position]],
+                           skeweed_distr = rep(1,6))
 
 # We add a factor called "Permanence to the "nodes" to plot
-nodes_DaFr <- nodes_DaFr %>% mutate("Permanence"=apply(Flow_DB[,2:ncol(Flow_DB)],2,sum))
+Dry_nodes_DaFr <- Dry_nodes_DaFr %>% mutate("Permanence"=apply(Flow_DB[,2:ncol(Flow_DB)],2,sum),
+                                            "Drying"=nrow(Flow_DB)-apply(Flow_DB[,2:ncol(Flow_DB)],2,sum),
+                                            "Dry_Patter"=sd(duration_for_function))
 
 # We plot our beloved river colored according to the weight (order)/community size
 Plot_B <- ggplot()+geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord),
                       arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
-  geom_point(data=nodes_DaFr, aes(x=x, y=y,
+  geom_point(data=Dry_nodes_DaFr, aes(x=x, y=y,
                                   fill=Permanence,
                                   size=weight/120000), shape=21)+
   scale_fill_viridis(option = "D",discrete = F,direction = -1)+
   scale_size(guide = "none") +
-  labs(title = paste("Scenario",Dry_extent,Poll_extent,sep="_"),y="",x="",fill="Permanence")+
+  labs(title = paste("Scenario",Dry_diff_extent$Dry_Ext[diff_extent_value],sep="_"),y="",x="",fill="Permanence")+
   theme_void()
 
+print(Plot_B)
 
+Dry_DataFrame_out[[diff_extent_value]] <- Dry_nodes_DaFr
+Flow_DB_toSTcon[[diff_extent_value]] <- Flow_DB
+}
 
+Orig_dispersal_pollution <- read.csv(file = paste0(getwd(), "/data/pollution_dispersal.csv")) %>% drop_na()
+
+Poll_nodes_DaFr <- nodes_DaFr
+Poll_DataFrame_out <- list()
+for (diff_extent_value in 1:length(unique(diff_extent$Pollut_Ext))) {
 # 3. Pollutino assignation  ####
+Poll_extent <- diff_extent$Pollut_Ext[diff_extent_value]
+
 #Spp_tolerance <- c(rep(0.5,50),rep(0.65,50),rep(0.75,50),rep(0.8,50))
 Spp_tolerance <- 1.01-(Orig_dispersal_pollution$IBMWP_score/10)
 
 # This function is very similar to the Dry but with less features (distribution is the same)
 #source("Function_to_Pollute.R")
 source(file = paste0(getwd(),"/Function_to_Pollute.R"))
-filter_Pollution <- function_to_pollute(River_nodes =nodes_DaFr,
+filter_Pollution <- function_to_pollute(River_nodes =Poll_nodes_DaFr,
                                         Spp_tolerance =Spp_tolerance ,
                                         extent =as.numeric(Poll_extent),
                                         distribution =NULL)
 
 # A way to detect polluted sites is by looking at which sites the "filter" does not meet the condition of all 0.99
-Pollution <- rep("Non_Poll",nrow(nodes_DaFr))# replicate "NonPoll" as the row number of nodes
+Pollution <- rep("Non_Poll",nrow(Poll_nodes_DaFr))# replicate "NonPoll" as the row number of nodes
 Polluted_Sites <- which(apply(filter_Pollution,2,sum)!=sum(rep(0.99,length(Spp_tolerance))))
 Pollution[Polluted_Sites] <- "YES_Poll" #write "YES_Poll" to polluted sites (which were randomly selected above)
 
-nodes_DaFr <- nodes_DaFr %>% mutate("Pollution"=Pollution)# merge scenarios and nodes
+Poll_nodes_DaFr <- Poll_nodes_DaFr %>% mutate("Pollution"=Pollution)# merge scenarios and nodes
 
-nodes_DaFr <- nodes_DaFr %>% mutate("Dry_Pattern"=round(sd(duration_for_function),2))# merge scenarios and nodes
 # We plot our beloved river colored according to the weight (order)/community size
 Plot_C <- ggplot()+
   geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord),
                       arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
-  geom_point(data=nodes_DaFr, aes(x=x, y=y,
-                                  fill=Permanence,
+  geom_point(data=Poll_nodes_DaFr, aes(x=x, y=y,
                                   size=weight/120000,
                                   shape=Pollution,
                                   colour=Pollution))+
-  scale_fill_viridis(option = "D",discrete = F,direction = -1)+
   scale_color_manual(values = c("black","red"))+
   scale_shape_manual(values=c(21,22))+
   scale_size(guide = "none") +
   labs(title = paste("Scenario",Dry_extent,Poll_extent,sep="_"),y="",x="",fill="Permanence")+
   theme_void()
 
+Poll_DataFrame_out[[diff_extent_value]] <- Poll_nodes_DaFr
+}
+
+# Checking lengths
+length(Dry_DataFrame_out)
+length(Flow_DB_toSTcon)
+length(Poll_DataFrame_out)
+
+output_to_simulate <- list()
+plots_diagnosis <- list()
+for (diff_extent_value in 1:(length(Dry_DataFrame_out)*length(Poll_DataFrame_out))) {
+Merge_diff_extent <- tidyr::crossing(Dry_Ext=unique(diff_extent$Dry_Ext),
+                                     Pollut_Ext=unique(diff_extent$Pollut_Ext),
+                                     Dry_Pattern_End=unique(diff_extent$Dry_Pattern_End))
+
+Dry_diff_extent <- tidyr::crossing(Dry_Ext=unique(diff_extent$Dry_Ext),Dry_Pattern_End=unique(diff_extent$Dry_Pattern_End))
+
+Sites_to_Dry_Position <- which(unique(diff_extent$Dry_Ext)==as.numeric(Merge_diff_extent[diff_extent_value,1]))
+Sites_to_Pattern_Position <- which(unique(diff_extent$Dry_Pattern_End)==as.numeric(Merge_diff_extent[diff_extent_value,3]))
+Sites_to_Pollut_Position <- which(unique(diff_extent$Pollut_Ext)==as.numeric(Merge_diff_extent[diff_extent_value,2]))
+
+Loca_Scen_DryPat <- which(duplicated(
+  c(which(Dry_diff_extent$Dry_Ext==unique(diff_extent$Dry_Ext)[Sites_to_Dry_Position]),
+    which(Dry_diff_extent$Dry_Pattern_End==unique(diff_extent$Dry_Pattern_End)[Sites_to_Pattern_Position]))))
+
+Scen_Position <-   c(which(Dry_diff_extent$Dry_Ext==unique(diff_extent$Dry_Ext)[Sites_to_Dry_Position]),
+                     which(Dry_diff_extent$Dry_Pattern_End==unique(diff_extent$Dry_Pattern_End)[Sites_to_Pattern_Position]))[Loca_Scen_DryPat]
+
+cat(Scen_Position,Sites_to_Pollut_Position,"\n")
+DataFrame_out_Scen <- left_join(Dry_DataFrame_out[[Scen_Position]],Poll_DataFrame_out[[Sites_to_Pollut_Position]], by=c("Site_ID","x","y","weight"))
+
 # 4. Pollution + Drying  ####
 # Rescaling filters according to drying
-drying_ranges <- unique(nodes_DaFr$Permanence)[order(unique(nodes_DaFr$Permanence))]
+drying_ranges <- unique(DataFrame_out_Scen$Permanence)[order(unique(DataFrame_out_Scen$Permanence))]
 Poll_Dry_Inter <- drying_ranges/max(drying_ranges)
 Poll_Dry_Inter <- ifelse(Poll_Dry_Inter==1,0.99,Poll_Dry_Inter)
 Poll_Dry_Inter <- ifelse(Poll_Dry_Inter==0,0.0001,Poll_Dry_Inter)
@@ -172,19 +214,19 @@ for (dry_range in 1:length(drying_ranges)) {
   if (drying_ranges[dry_range]==0) {
     Modif_Spp_tolerance <- rep(0,length(Spp_tolerance))
   }else{
-    Modif_Spp_tolerance <- Spp_tolerance^(drying_ranges[dry_range]/max(nodes_DaFr$Permanence))
+    Modif_Spp_tolerance <- Spp_tolerance^(drying_ranges[dry_range]/max(DataFrame_out_Scen$Permanence))
   }
 
   Dry_and_Poll_Spp_tolerance <- scales::rescale(Modif_Spp_tolerance,to=c(min(Spp_tolerance),max(Spp_tolerance)))
-  filter_Pollution[,which(Pollution=="YES_Poll" & nodes_DaFr$Permanence==drying_ranges[dry_range])] <- Dry_and_Poll_Spp_tolerance
+  filter_Pollution[,which(Pollution=="YES_Poll" & DataFrame_out_Scen$Permanence==drying_ranges[dry_range])] <- Dry_and_Poll_Spp_tolerance
 }
 filter_Pollution_test <- t(filter_Pollution)
 colnames(filter_Pollution_test) <- paste(seq(1:length(Spp_tolerance)),"Spe",sep="_")
 
 plot_D <- gridExtra::arrangeGrob(
-nodes_DaFr %>% 
+  DataFrame_out_Scen %>% 
   bind_cols(as.data.frame(filter_Pollution_test)) %>% 
-  pivot_longer(cols=8:ncol(.)) %>% 
+  pivot_longer(cols=9:ncol(.)) %>% 
   mutate(name=factor(name,levels = paste(seq(1:length(Spp_tolerance)),"Spe",sep="_"))) %>% 
   ggplot()+
   geom_tile(aes(y=as.factor(name),x=Site_ID,fill=value))+
@@ -193,9 +235,9 @@ nodes_DaFr %>%
   theme(axis.text.y = element_blank(),
         axis.ticks.y = element_blank(),
         legend.position = "right"),
-nodes_DaFr %>% 
+  DataFrame_out_Scen %>% 
   bind_cols(as.data.frame(filter_Pollution_test)) %>% 
-  pivot_longer(cols=8:ncol(.)) %>% 
+  pivot_longer(cols=9:ncol(.)) %>% 
   mutate(name=factor(name,levels = paste(seq(1:200),"Spe",sep="_"))) %>% 
   ggplot()+
   geom_tile(aes(y=as.factor(name),x=Site_ID,fill=Permanence))+
@@ -206,12 +248,11 @@ nodes_DaFr %>%
         legend.position = "right"),
 top= paste("Scenario",Dry_extent,Poll_extent,sep="_"),ncol=1)
 
-
 plots_temp <- list(gridExtra::arrangeGrob(Plot_A,Plot_B,Plot_C,ncol=3),plot_D)
 plots_diagnosis[[diff_extent_value]] <- plots_temp
-output_to_simulate[[diff_extent_value]] <- list(filter_Pollution,nodes_DaFr)
-Flow_DB_toSTcon[[diff_extent_value]] <- Flow_DB
+output_to_simulate[[diff_extent_value]] <- list(filter_Pollution,DataFrame_out_Scen,Flow_DB_toSTcon[[Scen_Position]])
 }# Diff
+
 
 png(filename = "Scenario.png",width = 6000,height = 6500,units = "px",res =300)
 gridExtra::grid.arrange(
@@ -227,18 +268,37 @@ gridExtra::grid.arrange(
  plots_diagnosis[[19]][[2]],plots_diagnosis[[25]][[2]],ncol=6)
 dev.off()
 
-gridExtra::grid.arrange(plots_diagnosis[[84]][[1]])
-
 save(plots_diagnosis,file = "Diagnosis_Plots.RData")
 
 # 5. STconmat calculation  ####
 # Remember that STcon is able to calculate several rivers at the same time! So you just need to have a list object with the 3 elements 
 # for each river scenario: 
 
-# We save the objects to send to the SLURM running cluster
+# Important to save the image to later plot and use the simulations 
+save.image(file="PreSTcon.RData")
 
+# We save the objects to send to the SLURM running cluster
 Net_stru_RAW <- as.matrix(ocn_TEST$FD$W)
-save(Flow_DB_toSTcon,g,Net_stru_RAW,nodes_DaFr,file="Cluster_Code/SLURM_PreSTcon.RData" )
+
+Flow_DB_toSTcon_Sc <- list()
+for (diff_extent_value in 1:length(output_to_simulate)) {
+Flow_DB_toSTcon_Sc[[diff_extent_value]] <- output_to_simulate[[diff_extent_value]][[3]]
+}
+
+Jumps_Per_Pack_Beg <- rep(25,ceiling(length(Flow_DB_toSTcon_Sc)/25)-1)
+Jumps_Per_Pack_Beg <- c(0,Jumps_Per_Pack_Beg)
+Jumps_Per_Pack_End <- rep(25,ceiling(length(Flow_DB_toSTcon_Sc)/25)-1)
+Jumps_Per_Pack_End <- c(0,Jumps_Per_Pack_End)
+Beg=1
+End=25
+for (pack_scenario in 1:ceiling(length(Flow_DB_toSTcon_Sc)/25)) {
+Beg=Beg+Jumps_Per_Pack_Beg[pack_scenario]
+End=End+Jumps_Per_Pack_End[pack_scenario]
+Scenario <- cbind(Beg,End)
+Flow_DB_toSTcon <- Flow_DB_toSTcon_Sc[Beg:End]
+save(Scenario,Flow_DB_toSTcon,g,Net_stru_RAW,nodes_DaFr,
+     file=paste("Cluster_Code/",paste("Sc_",Beg,"_",End, sep = ""),"/SLURM_PreSTcon.RData",sep=""))
+}
 
 library(igraph)
 # Intermittence database
@@ -289,31 +349,6 @@ save(list = "Riv_Swim",file = "Riv_Swim_STcon.RData")
 
 
 
-ggplot()+
-  geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord),
-               arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
-  geom_point(data=nodes_DaFr, aes(x=x, y=y,
-                                  fill=Riv_Swim$STcon[[121]]/Riv_Swim$STcon[[122]],
-                                  size=1,
-                                  shape=Pollution,
-                                  colour=Pollution))+
-  scale_fill_viridis(option = "D",discrete = F,direction = 1)+
-  scale_color_manual(values = c("black","red"))+
-  scale_shape_manual(values=c(21,22))+
-  scale_size(guide = "none") +
-  labs(title = "",y="",x="",fill="STcon")+
-  theme_void()
-
-Scen_Swim_STconmat <- list()
-for (scen in 1:(length(Riv_Swim$STconmat)-1)) {
-  Swim_STconmat <-Riv_Swim$STconmat[[scen]]#/Riv_Swim$STconmat[[length(Int_dataset)]]
-  #to construct a diagonal matrix
-  diag(Swim_STconmat) <- 1
-  # if Riv_STconmat is 0 or NaN, write 10000, otherwise write Riv_STconmat
-  Scen_Swim_STconmat[[scen]] <-ifelse(Swim_STconmat==0,100,Swim_STconmat)
-  #Scen_Swim_STconmat[[scen]] <-ifelse(is.nan(Swim_STconmat)==T,100,Swim_STconmat)
-}
-
 # Network structure
 Distances <- as.matrix(dist(nodes_DaFr[,3:4]))
 summary(as.vector(Distances))
@@ -342,13 +377,36 @@ save(list = "Riv_AerAct",file = "Riv_AerAct_STcon.RData")
 
 
 # After running in the server we reload the data and prepare it for the model 
-load("Riv_Drift_STcon.RData")
-load("Riv_Swim_STcon.RData")
-load("Riv_AerAct_STcon.RData")
+#Drift
+Riv_Drift_Tot <- list()
+load("Cluster_Code/Run_1_25/Riv_Drift_STcon.RData")
+Riv_Drift_Tot[1:25] <- Riv_Drift$STconmat[1:25]
+load("Cluster_Code/Run_26_50/Riv_Drift_STcon.RData")
+Riv_Drift_Tot[26:50] <- Riv_Drift$STconmat[1:25]
+load("Cluster_Code/Run_51_75/Riv_Drift_STcon.RData")
+Riv_Drift_Tot[51:75] <- Riv_Drift$STconmat[1:25]
+
+#Swim
+Riv_Swim_Tot <- list()
+load("Cluster_Code/Run_1_25/Riv_Swim_STcon.RData")
+Riv_Swim_Tot[1:25] <- Riv_Swim$STconmat[1:25]
+load("Cluster_Code/Run_26_50/Riv_Swim_STcon.RData")
+Riv_Swim_Tot[26:50] <- Riv_Swim$STconmat[1:25]
+load("Cluster_Code/Run_51_75/Riv_Swim_STcon.RData")
+Riv_Swim_Tot[51:75] <- Riv_Swim$STconmat[1:25]
+
+#Active
+Riv_AerAct_Tot <- list()
+load("Cluster_Code/Run_1_25/Riv_AerAct_STcon.RData")
+Riv_AerAct_Tot[1:25] <- Riv_AerAct$STconmat[1:25]
+load("Cluster_Code/Run_26_50/Riv_AerAct_STcon.RData")
+Riv_AerAct_Tot[26:50] <- Riv_AerAct$STconmat[1:25]
+load("Cluster_Code/Run_51_75/Riv_AerAct_STcon.RData")
+Riv_AerAct_Tot[51:75] <- Riv_AerAct$STconmat[1:25]
 
 Scen_Drift_STconmat <- list()
-for (scen in 1:(length(Riv_Drift$STconmat)-1)) {
-  Drift_STconmat <-Riv_Drift$STconmat[[scen]]#/Riv_Drift$STconmat[[length(Int_dataset)]]
+for (scen in 1:(length(Riv_Drift_Tot))) {
+  Drift_STconmat <-Riv_Drift_Tot[[scen]]#/Riv_Drift$STconmat[[length(Int_dataset)]]
   #to construct a diagonal matrix
   diag(Drift_STconmat) <- 1
   # if Riv_STconmat is 0, write 10000, otherwise write Riv_STconmat
@@ -357,8 +415,8 @@ for (scen in 1:(length(Riv_Drift$STconmat)-1)) {
 }
 
 Scen_Swim_STconmat <- list()
-for (scen in 1:(length(Riv_Swim$STconmat)-1)) {
-  Swim_STconmat <-Riv_Swim$STconmat[[scen]]#/Riv_Swim$STconmat[[length(Int_dataset)]]
+for (scen in 1:(length(Riv_Swim_Tot))) {
+  Swim_STconmat <-Riv_Swim_Tot[[scen]]#/Riv_Swim$STconmat[[length(Int_dataset)]]
   #to construct a diagonal matrix
   diag(Swim_STconmat) <- 1
   # if Riv_STconmat is 0 or NaN, write 10000, otherwise write Riv_STconmat
@@ -367,8 +425,8 @@ for (scen in 1:(length(Riv_Swim$STconmat)-1)) {
 }
 
 Scen_AAct_STconmat <- list()
-for (scen in 1:(length(Riv_AerAct$STconmat)-1)) {
-  AAct_STconmat <-Riv_AerAct$STconmat[[scen]]#/Riv_Swim$STconmat[[length(Int_dataset)]]
+for (scen in 1:(length(Riv_AerAct_Tot))) {
+  AAct_STconmat <-Riv_AerAct_Tot[[scen]]#/Riv_Swim$STconmat[[length(Int_dataset)]]
   #to construct a diagonal matrix
   diag(AAct_STconmat) <- 1
   # if Riv_STconmat is 0 or NaN, write 10000, otherwise write Riv_STconmat
@@ -381,12 +439,8 @@ summary(as.vector(Scen_AAct_STconmat[[3]]))
 summary(as.vector(Scen_Swim_STconmat[[3]]))
 summary(as.vector(Scen_Drift_STconmat[[3]]))
 
-
-
+# 6. Coaslescent runs ####
 source("H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R")
-
-#source("H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R")
-source(file = paste0(getwd(),"/H2020_Lattice_expKernel_Jenv_TempMeta.R"))
 
 ###__________________________________
 ### WE BEGUN TO built all the data that we need to run the simulation
@@ -440,7 +494,7 @@ J.freshwater <- ifelse(J.freshwater<0,20,J.freshwater)
                     
 a <- NULL # We create an output object for each iteration
 #b <- list()
-for (it in 1:5) { # We repeat 10 times the same process
+for (it in 1:10) { # We repeat 10 times the same process
   output <- H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom_tempIT(
     Meta.pool = pool_200, # Species pool
     m.pool = 0.001, # Regional dispersal which is always constant 
@@ -468,8 +522,8 @@ for (it in 1:5) { # We repeat 10 times the same process
 resume.out(a)
 }
 toc()
-save(Diff_scenarios,file = "Diff_scenarios_75.RData")
-save(output_to_simulate, file="Raw_Data_To_Simul_Good.RData")
+save(Diff_scenarios,file = "Big_scenarios_75.RData")
+save(output_to_simulate, file="Big_Raw_Data_To_Simul_Good.RData")
 # 13593.65 
 
 # > <
@@ -525,7 +579,7 @@ for (round in 1:(Leng_scenarios*leng_disp)) {
                                     "S"=S_site,"B"=B_site))
   Res_nodes_DaFr <- bind_rows(Res_nodes_DaFr,Result_df)
 }
-save(Res_nodes_DaFr,file="Results_75_scenarios.RData")
+save(Res_nodes_DaFr,file="Results_BIG75_scenarios.RData")
 
 
 # 6. Plots and results outputs ####
