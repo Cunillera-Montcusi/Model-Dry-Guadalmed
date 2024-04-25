@@ -55,9 +55,7 @@ Streams_to_dry <- sample(1:nrow(River_nodes),
                          size = nrow(River_nodes)*extent, # Random % of streams
                          replace = F) # We randomly select which sites suffer this drying pattern
 }else{
-Streams_to_dry <- sample(distribution,
-                         size = length(distribution)*extent, # Random % of streams
-                         replace = F) # We randomly select which sites suffer this drying pattern
+Streams_to_dry <- distribution
 }
 
 # We create a cummulative sums vector so select the randomly selected nodes and distribute the duration patterns
