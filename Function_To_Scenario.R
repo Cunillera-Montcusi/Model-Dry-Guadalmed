@@ -202,7 +202,11 @@ Scen_Position <-   c(which(Dry_diff_extent$Dry_Ext==unique(diff_extent$Dry_Ext)[
                      which(Dry_diff_extent$Dry_Pattern_End==unique(diff_extent$Dry_Pattern_End)[Sites_to_Pattern_Position]))[Loca_Scen_DryPat]
 
 cat(Scen_Position,Sites_to_Pollut_Position,"\n")
-DataFrame_out_Scen <- left_join(Dry_DataFrame_out[[Scen_Position]],Poll_DataFrame_out[[Sites_to_Pollut_Position]], by=c("Site_ID","x","y","weight"))
+DataFrame_out_Scen <- left_join(Dry_DataFrame_out[[Scen_Position]],Poll_DataFrame_out[[Sites_to_Pollut_Position]], by=c("Site_ID","x","y","weight")) %>% 
+mutate(Scenario=paste(as.numeric(Merge_diff_extent[diff_extent_value,1]),
+                      as.numeric(Merge_diff_extent[diff_extent_value,3]),
+                      as.numeric(Merge_diff_extent[diff_extent_value,2]),sep="_"),.before="Site_ID")  
+
 
 # 4. Pollution + Drying  ####
 # Rescaling filters according to drying
@@ -226,7 +230,7 @@ colnames(filter_Pollution_test) <- paste(seq(1:length(Spp_tolerance)),"Spe",sep=
 plot_D <- gridExtra::arrangeGrob(
   DataFrame_out_Scen %>% 
   bind_cols(as.data.frame(filter_Pollution_test)) %>% 
-  pivot_longer(cols=9:ncol(.)) %>% 
+  pivot_longer(cols=10:ncol(.)) %>% 
   mutate(name=factor(name,levels = paste(seq(1:length(Spp_tolerance)),"Spe",sep="_"))) %>% 
   ggplot()+
   geom_tile(aes(y=as.factor(name),x=Site_ID,fill=value))+
@@ -237,7 +241,7 @@ plot_D <- gridExtra::arrangeGrob(
         legend.position = "right"),
   DataFrame_out_Scen %>% 
   bind_cols(as.data.frame(filter_Pollution_test)) %>% 
-  pivot_longer(cols=9:ncol(.)) %>% 
+  pivot_longer(cols=10:ncol(.)) %>% 
   mutate(name=factor(name,levels = paste(seq(1:200),"Spe",sep="_"))) %>% 
   ggplot()+
   geom_tile(aes(y=as.factor(name),x=Site_ID,fill=Permanence))+
