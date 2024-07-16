@@ -60,12 +60,12 @@ Plot_A <- ggplot()+
 
 Years_Of_Drying <- 4
 
-diff_extent <- c(0.01,0.1,0.25,0.5,0.75)
+diff_extent <- c(0.01,0.1,0.25,0.3,0.35,0.5,0.75)
 diff_extent <- tidyr::crossing(Dry_Ext=diff_extent,
                                Pollut_Ext=diff_extent,
                                Dry_Pattern_End=diff_extent)
 
-diff_extent <- diff_extent %>% filter(Dry_Pattern_End%in%c(0.01,0.25,0.75))
+#diff_extent <- diff_extent %>% filter(Dry_Pattern_End%in%c(0.01,0.25,0.75))
 
 
 Flow_DB_toSTcon <- list()
@@ -135,11 +135,23 @@ Flow_DB_toSTcon[[diff_extent_value]] <- Flow_DB
 
 Orig_dispersal_pollution <- read.csv(file = paste0(getwd(), "/data/pollution_dispersal.csv")) %>% drop_na()
 
+
+
+Sites_to_Pollut<- list()
+Selected_Sites <- sample(nodes_DaFr$Site_ID,size = length(nodes_DaFr$Site_ID),replace = F)
+for (Sit_To_Pol in 1:length(unique(diff_extent$Pollut_Ext))) {
+  Sites_to_Pollut[[Sit_To_Pol]] <-Selected_Sites[1:ceiling(nrow(nodes_DaFr)*unique(diff_extent$Pollut_Ext)[Sit_To_Pol])] 
+}
 Poll_nodes_DaFr <- nodes_DaFr
 Poll_DataFrame_out <- list()
-for (diff_extent_value in 1:length(unique(diff_extent$Pollut_Ext))) {
+Poll_filter_Pollution <- list()
 # 3. Pollutino assignation  ####
-Poll_extent <- diff_extent$Pollut_Ext[diff_extent_value]
+for (diff_extent_value in 1:length(unique(diff_extent$Pollut_Ext))) {
+Poll_extent <- 1
+  
+Poll_diff_extent <- unique(diff_extent$Pollut_Ext)
+  
+Sites_to_Pol_Position <- which(unique(diff_extent$Pollut_Ext)==as.numeric(Poll_diff_extent[diff_extent_value]))
 
 #Spp_tolerance <- c(rep(0.5,50),rep(0.65,50),rep(0.75,50),rep(0.8,50))
 Spp_tolerance <- 1.01-(Orig_dispersal_pollution$IBMWP_score/10)
@@ -149,8 +161,8 @@ Spp_tolerance <- 1.01-(Orig_dispersal_pollution$IBMWP_score/10)
 source(file = paste0(getwd(),"/Function_to_Pollute.R"))
 filter_Pollution <- function_to_pollute(River_nodes =Poll_nodes_DaFr,
                                         Spp_tolerance =Spp_tolerance ,
-                                        extent =as.numeric(Poll_extent),
-                                        distribution =NULL)
+                                        extent =Poll_extent,
+                                        distribution =Sites_to_Pollut[[Sites_to_Pol_Position]])
 
 # A way to detect polluted sites is by looking at which sites the "filter" does not meet the condition of all 0.99
 Pollution <- rep("Non_Poll",nrow(Poll_nodes_DaFr))# replicate "NonPoll" as the row number of nodes
@@ -174,6 +186,7 @@ Plot_C <- ggplot()+
   theme_void()
 
 Poll_DataFrame_out[[diff_extent_value]] <- Poll_nodes_DaFr
+Poll_filter_Pollution[[diff_extent_value]] <-list(filter_Pollution,Pollution) 
 }
 
 # Checking lengths
@@ -184,6 +197,7 @@ length(Poll_DataFrame_out)
 output_to_simulate <- list()
 plots_diagnosis <- list()
 for (diff_extent_value in 1:(length(Dry_DataFrame_out)*length(Poll_DataFrame_out))) {
+  
 Merge_diff_extent <- tidyr::crossing(Dry_Ext=unique(diff_extent$Dry_Ext),
                                      Pollut_Ext=unique(diff_extent$Pollut_Ext),
                                      Dry_Pattern_End=unique(diff_extent$Dry_Pattern_End))
@@ -201,12 +215,16 @@ Loca_Scen_DryPat <- which(duplicated(
 Scen_Position <-   c(which(Dry_diff_extent$Dry_Ext==unique(diff_extent$Dry_Ext)[Sites_to_Dry_Position]),
                      which(Dry_diff_extent$Dry_Pattern_End==unique(diff_extent$Dry_Pattern_End)[Sites_to_Pattern_Position]))[Loca_Scen_DryPat]
 
-cat(Scen_Position,Sites_to_Pollut_Position,"\n")
-DataFrame_out_Scen <- left_join(Dry_DataFrame_out[[Scen_Position]],Poll_DataFrame_out[[Sites_to_Pollut_Position]], by=c("Site_ID","x","y","weight")) %>% 
+cat(Scen_Position,Sites_to_Pollut_Position,"/n")
+DataFrame_out_Scen <- left_join(Dry_DataFrame_out[[Scen_Position]],Poll_DataFrame_out[[Sites_to_Pollut_Position]], 
+                                by=c("Site_ID","x","y","weight")) %>% 
 mutate(Scenario=paste(as.numeric(Merge_diff_extent[diff_extent_value,1]),
                       as.numeric(Merge_diff_extent[diff_extent_value,3]),
                       as.numeric(Merge_diff_extent[diff_extent_value,2]),sep="_"),.before="Site_ID")  
 
+# We set the new filter for the pollution 
+filter_Pollution <- Poll_filter_Pollution[[Sites_to_Pollut_Position]][[1]]
+Pollution <- Poll_filter_Pollution[[Sites_to_Pollut_Position]][[2]]
 
 # 4. Pollution + Drying  ####
 # Rescaling filters according to drying
@@ -279,7 +297,7 @@ save(plots_diagnosis,file = "Diagnosis_Plots.RData")
 # for each river scenario: 
 
 # Important to save the image to later plot and use the simulations 
-save.image(file="PreSTcon.RData")
+save.image(file="Cluster_Code/PreSTcon.RData")
 
 # We save the objects to send to the SLURM running cluster
 Net_stru_RAW <- as.matrix(ocn_TEST$FD$W)
@@ -289,13 +307,13 @@ for (diff_extent_value in 1:length(output_to_simulate)) {
 Flow_DB_toSTcon_Sc[[diff_extent_value]] <- output_to_simulate[[diff_extent_value]][[3]]
 }
 
-Jumps_Per_Pack_Beg <- rep(25,ceiling(length(Flow_DB_toSTcon_Sc)/25)-1)
+Jumps_Per_Pack_Beg <- rep(15,ceiling(length(Flow_DB_toSTcon_Sc)/15)-1)
 Jumps_Per_Pack_Beg <- c(0,Jumps_Per_Pack_Beg)
-Jumps_Per_Pack_End <- rep(25,ceiling(length(Flow_DB_toSTcon_Sc)/25)-1)
+Jumps_Per_Pack_End <- rep(15,ceiling(length(Flow_DB_toSTcon_Sc)/15)-1)
 Jumps_Per_Pack_End <- c(0,Jumps_Per_Pack_End)
 Beg=1
-End=25
-for (pack_scenario in 1:ceiling(length(Flow_DB_toSTcon_Sc)/25)) {
+End=15
+for (pack_scenario in 1:ceiling(length(Flow_DB_toSTcon_Sc)/15)) {
 Beg=Beg+Jumps_Per_Pack_Beg[pack_scenario]
 End=End+Jumps_Per_Pack_End[pack_scenario]
 Scenario <- cbind(Beg,End)
@@ -379,34 +397,37 @@ Riv_AerAct <- spat_temp_index(Inermitence_dataset = Int_dataset,
 
 save(list = "Riv_AerAct",file = "Riv_AerAct_STcon.RData")
 
-
+length(output_to_simulate)
 # After running in the server we reload the data and prepare it for the model 
-#Drift
-Riv_Drift_Tot <- list()
-load("Cluster_Code/Run_1_25/Riv_Drift_STcon.RData")
-Riv_Drift_Tot[1:25] <- Riv_Drift$STconmat[1:25]
-load("Cluster_Code/Run_26_50/Riv_Drift_STcon.RData")
-Riv_Drift_Tot[26:50] <- Riv_Drift$STconmat[1:25]
-load("Cluster_Code/Run_51_75/Riv_Drift_STcon.RData")
-Riv_Drift_Tot[51:75] <- Riv_Drift$STconmat[1:25]
+Jumps_Per_Pack_Beg <- rep(15,ceiling(length(output_to_simulate)/15)-1)
+Jumps_Per_Pack_Beg <- c(0,Jumps_Per_Pack_Beg)
+Jumps_Per_Pack_End <- rep(15,ceiling(length(output_to_simulate)/15)-1)
+Jumps_Per_Pack_End <- c(0,Jumps_Per_Pack_End)
+Beg=1; End=15
+Riv_Drift_Tot <- list(); Riv_Swim_Tot <- list(); Riv_AerAct_Tot <- list()
+for (pack_scenario in 17:ceiling(length(output_to_simulate)/15)) {
+  Beg=Beg+Jumps_Per_Pack_Beg[pack_scenario]
+  End=End+Jumps_Per_Pack_End[pack_scenario]
+  Scenario <- cbind(Beg,End)
+  Flow_DB_toSTcon <- Flow_DB_toSTcon_Sc[Beg:End]
+  # Charge drifters 
+  load(paste("C:/Users/David CM/Dropbox/DAVID DOC/LLAM al DIA/1. FEHM coses al DIA/7. DRY-GUADALMED/SLURM_Model_Dry_Guadalmed/",
+             paste("Sc_",Beg,"_",End, sep = ""),"/Riv_Drift_STcon.RData",sep=""))
+  Riv_Drift_Tot[Beg:End] <- Riv_Drift$STconmat[1:15]
+  # Charge swimmers
+  load(paste("C:/Users/David CM/Dropbox/DAVID DOC/LLAM al DIA/1. FEHM coses al DIA/7. DRY-GUADALMED/SLURM_Model_Dry_Guadalmed/",
+             paste("Sc_",Beg,"_",End, sep = ""),"/Riv_Swim_STcon.RData",sep=""))
+  Riv_Swim_Tot[Beg:End] <- Riv_Swim$STconmat[1:15]
+  # Charge flyiers
+  load(paste("C:/Users/David CM/Dropbox/DAVID DOC/LLAM al DIA/1. FEHM coses al DIA/7. DRY-GUADALMED/SLURM_Model_Dry_Guadalmed/",
+             paste("Sc_",Beg,"_",End, sep = ""),"/Riv_AerAct_STcon.RData",sep=""))
+  Riv_AerAct_Tot[Beg:End] <- Riv_AerAct$STconmat[1:15]
+}
 
-#Swim
-Riv_Swim_Tot <- list()
-load("Cluster_Code/Run_1_25/Riv_Swim_STcon.RData")
-Riv_Swim_Tot[1:25] <- Riv_Swim$STconmat[1:25]
-load("Cluster_Code/Run_26_50/Riv_Swim_STcon.RData")
-Riv_Swim_Tot[26:50] <- Riv_Swim$STconmat[1:25]
-load("Cluster_Code/Run_51_75/Riv_Swim_STcon.RData")
-Riv_Swim_Tot[51:75] <- Riv_Swim$STconmat[1:25]
+Riv_Drift_Tot <- Riv_Drift_Tot[1:length(output_to_simulate)]
+Riv_Swim_Tot <- Riv_Swim_Tot[1:length(output_to_simulate)]
+Riv_AerAct_Tot <- Riv_AerAct_Tot[1:length(output_to_simulate)]
 
-#Active
-Riv_AerAct_Tot <- list()
-load("Cluster_Code/Run_1_25/Riv_AerAct_STcon.RData")
-Riv_AerAct_Tot[1:25] <- Riv_AerAct$STconmat[1:25]
-load("Cluster_Code/Run_26_50/Riv_AerAct_STcon.RData")
-Riv_AerAct_Tot[26:50] <- Riv_AerAct$STconmat[1:25]
-load("Cluster_Code/Run_51_75/Riv_AerAct_STcon.RData")
-Riv_AerAct_Tot[51:75] <- Riv_AerAct$STconmat[1:25]
 
 Scen_Drift_STconmat <- list()
 for (scen in 1:(length(Riv_Drift_Tot))) {
@@ -456,7 +477,7 @@ source("H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R")
 # We define parameters of Community area to transform weight to community size (J)
 Max_Area<-(Years_Of_Drying*12)#*max(nodes_DaFr$weight)
 Jmin <- 50 # What will be the minimum size at which we will consider "0" 
-J.max<-300+Jmin # What is the maximum J that we want to assign to a community
+J.max<-200+Jmin # What is the maximum J that we want to assign to a community
 b.ef<-(0.8) # The coefficient of change. If 1 we do a direct proportion between the two but minimimum becomes "1" (only 1 indiv)
 
 # Species tolerances defined in the 2. script
@@ -491,7 +512,7 @@ Diff_scenarios <- foreach(dispersal=1:length(dispersal_test), .combine=rbind)%:%
                   foreach(pollut=1:length(output_to_simulate), .combine=rbind)%dopar%{ # Parallellize for pollution
 
 # J creation
-FW_area <- output_to_simulate[[10]][[2]]$Permanence#*output_to_simulate[[pollut]][[2]]$weight
+FW_area <- output_to_simulate[[pollut]][[2]]$Permanence#*output_to_simulate[[pollut]][[2]]$weight
 J.freshwater<-ceiling((-Jmin+(J.max/(Max_Area^b.ef))*FW_area^b.ef))
 plot(FW_area,J.freshwater)
 J.freshwater <- ifelse(J.freshwater<0,20,J.freshwater)
@@ -526,8 +547,8 @@ for (it in 1:10) { # We repeat 10 times the same process
 resume.out(a)
 }
 toc()
-save(Diff_scenarios,file = "Big_scenarios_75.RData")
-save(output_to_simulate, file="Big_Raw_Data_To_Simul_Good.RData")
+save(Diff_scenarios,file = "343_Scenarios.RData")
+save(output_to_simulate, file="343_Scenarios_OutputToSimul.RData")
 # 13593.65 
 
 # > <
@@ -568,7 +589,8 @@ for (round in 1:(Leng_scenarios*leng_disp)) {
   STcon_Drift[which(is.nan(STcon_Drift))] <- 1
   Result_df <- bind_cols(output_to_simulate[[round_value]][[2]] %>%
                          data.frame("Dry_ext"= strsplit(unique(output_to_simulate[[round_value]][[2]]$Scenario),split = "_")[[1]][1],
-                                    "Pollut_ext"=strsplit(unique(output_to_simulate[[round_value]][[2]]$Scenario),split = "_")[[1]][2],
+                                    "Dry_patt"=strsplit(unique(output_to_simulate[[round_value]][[2]]$Scenario),split = "_")[[1]][2],
+                                    "Pollut_ext"=strsplit(unique(output_to_simulate[[round_value]][[2]]$Scenario),split = "_")[[1]][3],
                                     "Disp"=as.numeric(Diff_scenarios[[round]][4]),
                                     "STcon_Drift"=STcon_Drift,
                                     "STcon_Swim"=STcon_Swim,
@@ -583,21 +605,35 @@ for (round in 1:(Leng_scenarios*leng_disp)) {
                                     "S"=S_site,"B"=B_site))
   Res_nodes_DaFr <- bind_rows(Res_nodes_DaFr,Result_df)
 }
-save(Res_nodes_DaFr,file="Results_BIG75_scenarios.RData")
+save(Res_nodes_DaFr,file="343_Results_scenarios.RData")
 
 
 # 6. Plots and results outputs ####
 library(tidyverse);library(viridis)
-load("Results_Good_scenarios.RData")
+load("343_Results_scenarios.RData")
 
 colnames(Res_nodes_DaFr)
 Data_To_Plot <- Res_nodes_DaFr %>% filter(Disp==0.15)
 Data_To_Plot_Ref <- Res_nodes_DaFr %>% filter(Disp==0.15,Scenario=="0.01_0.01")
 Data_To_Plot_Ref
 
-unique(Data_To_Plot$Scenario)
+# Big raster plot with Mean, Median and Difference
+Big_Ref <- Data_To_Plot %>% select(Scenario,Site_ID,Dry_ext, Pollut_ext, Dry_patt ,IBMWP) %>% 
+                            filter(Pollut_ext==0.01)
 
-colnames(Data_To_Plot)
+Data_To_Plot %>% 
+  select(Scenario, Site_ID,Pollution,Dry_ext, Pollut_ext, Dry_patt ,IBMWP) %>% 
+  filter(Pollut_ext!=0.01) %>% 
+  left_join(Big_Ref, by=c("Dry_ext", "Dry_patt"), relationship = "many-to-many") %>% 
+  mutate(Diff=IBMWP.y-IBMWP.x) %>% 
+  group_by(Scenario.x,Dry_ext, Pollut_ext.x, Dry_patt) %>% 
+  summarise(Mean_Diff=mean(Diff),Med_Diff=median(Diff),sd_Diff=sd(Diff)) %>% 
+  pivot_longer(5:7) %>% 
+  ggplot()+
+  geom_raster(aes(x=Dry_ext,y=Dry_patt,fill=value),interpolate = T)+
+  scale_fill_viridis()+
+  facet_wrap(Pollut_ext.x~name,ncol=3)
+
 
 gridExtra::grid.arrange(
 Data_To_Plot %>% ggplot()+
