@@ -48,25 +48,16 @@ for (nodes in 1:nrow(nodes_DaFr)) {
   edges_DaFr[which(edges_DaFr$to==nodes),6] <- nodes_DaFr[nodes,]$y
 }
 
-# We plot our beloved river colored according to the weight (order)/community size
-Plot_A <- ggplot()+
-  geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord), 
-               arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
-  geom_point(data=nodes_DaFr, aes(x=x, y=y,fill=weight/120000,size=weight/120000), shape=21)+ # here weight/12000 is random decision for plotting
-  scale_fill_viridis(option = "D",discrete = F)+
-  scale_size(guide = "none") +
-  labs(title = "River structure",y="",x="",fill="Comm. Size")+
-  theme_void()
-
 Years_Of_Drying <- 4
 
-diff_extent <- c(0.01,0.1,0.25,0.3,0.35,0.5,0.75)
+diff_extent <- c(0.01,0.1,0.25,0.35,0.45,0.5,0.65,0.75,0.9)
 diff_extent <- tidyr::crossing(Dry_Ext=diff_extent,
                                Pollut_Ext=diff_extent,
-                               Dry_Pattern_End=diff_extent)
+                               Dry_Pattern_End=diff_extent) %>% 
+                filter(!Dry_Pattern_End%in%c(0.65))
+nrow(diff_extent)
 
 #diff_extent <- diff_extent %>% filter(Dry_Pattern_End%in%c(0.01,0.25,0.75))
-
 
 Flow_DB_toSTcon <- list()
 Dry_nodes_DaFr <- nodes_DaFr
@@ -116,19 +107,6 @@ Dry_nodes_DaFr <- Dry_nodes_DaFr %>% mutate("Permanence"=apply(Flow_DB[,2:ncol(F
                                             "Drying"=nrow(Flow_DB)-apply(Flow_DB[,2:ncol(Flow_DB)],2,sum),
                                             "Dry_Patter"=sd(duration_for_function))
 
-# We plot our beloved river colored according to the weight (order)/community size
-Plot_B <- ggplot()+geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord),
-                      arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
-  geom_point(data=Dry_nodes_DaFr, aes(x=x, y=y,
-                                  fill=Permanence,
-                                  size=weight/120000), shape=21)+
-  scale_fill_viridis(option = "D",discrete = F,direction = -1)+
-  scale_size(guide = "none") +
-  labs(title = paste("Scenario",Dry_diff_extent$Dry_Ext[diff_extent_value],sep="_"),y="",x="",fill="Permanence")+
-  theme_void()
-
-print(Plot_B)
-
 Dry_DataFrame_out[[diff_extent_value]] <- Dry_nodes_DaFr
 Flow_DB_toSTcon[[diff_extent_value]] <- Flow_DB
 }
@@ -136,17 +114,18 @@ Flow_DB_toSTcon[[diff_extent_value]] <- Flow_DB
 Orig_dispersal_pollution <- read.csv(file = paste0(getwd(), "/data/pollution_dispersal.csv")) %>% drop_na()
 
 
-
 Sites_to_Pollut<- list()
 Selected_Sites <- sample(nodes_DaFr$Site_ID,size = length(nodes_DaFr$Site_ID),replace = F)
 for (Sit_To_Pol in 1:length(unique(diff_extent$Pollut_Ext))) {
   Sites_to_Pollut[[Sit_To_Pol]] <-Selected_Sites[1:ceiling(nrow(nodes_DaFr)*unique(diff_extent$Pollut_Ext)[Sit_To_Pol])] 
 }
-Poll_nodes_DaFr <- nodes_DaFr
+
 Poll_DataFrame_out <- list()
 Poll_filter_Pollution <- list()
+
 # 3. Pollutino assignation  ####
 for (diff_extent_value in 1:length(unique(diff_extent$Pollut_Ext))) {
+Poll_nodes_DaFr <- nodes_DaFr
 Poll_extent <- 1
   
 Poll_diff_extent <- unique(diff_extent$Pollut_Ext)
@@ -170,20 +149,6 @@ Polluted_Sites <- which(apply(filter_Pollution,2,sum)!=sum(rep(0.99,length(Spp_t
 Pollution[Polluted_Sites] <- "YES_Poll" #write "YES_Poll" to polluted sites (which were randomly selected above)
 
 Poll_nodes_DaFr <- Poll_nodes_DaFr %>% mutate("Pollution"=Pollution)# merge scenarios and nodes
-
-# We plot our beloved river colored according to the weight (order)/community size
-Plot_C <- ggplot()+
-  geom_segment(data=edges_DaFr, aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord),
-                      arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
-  geom_point(data=Poll_nodes_DaFr, aes(x=x, y=y,
-                                  size=weight/120000,
-                                  shape=Pollution,
-                                  colour=Pollution))+
-  scale_color_manual(values = c("black","red"))+
-  scale_shape_manual(values=c(21,22))+
-  scale_size(guide = "none") +
-  labs(title = paste("Scenario",Dry_extent,Poll_extent,sep="_"),y="",x="",fill="Permanence")+
-  theme_void()
 
 Poll_DataFrame_out[[diff_extent_value]] <- Poll_nodes_DaFr
 Poll_filter_Pollution[[diff_extent_value]] <-list(filter_Pollution,Pollution) 
@@ -215,7 +180,7 @@ Loca_Scen_DryPat <- which(duplicated(
 Scen_Position <-   c(which(Dry_diff_extent$Dry_Ext==unique(diff_extent$Dry_Ext)[Sites_to_Dry_Position]),
                      which(Dry_diff_extent$Dry_Pattern_End==unique(diff_extent$Dry_Pattern_End)[Sites_to_Pattern_Position]))[Loca_Scen_DryPat]
 
-cat(Scen_Position,Sites_to_Pollut_Position,"/n")
+cat(Scen_Position,Sites_to_Pollut_Position, "\n")
 DataFrame_out_Scen <- left_join(Dry_DataFrame_out[[Scen_Position]],Poll_DataFrame_out[[Sites_to_Pollut_Position]], 
                                 by=c("Site_ID","x","y","weight")) %>% 
 mutate(Scenario=paste(as.numeric(Merge_diff_extent[diff_extent_value,1]),
@@ -245,6 +210,57 @@ for (dry_range in 1:length(drying_ranges)) {
 filter_Pollution_test <- t(filter_Pollution)
 colnames(filter_Pollution_test) <- paste(seq(1:length(Spp_tolerance)),"Spe",sep="_")
 
+# Final diagnostic plots
+
+Scenario_name <- paste(as.numeric(Merge_diff_extent[diff_extent_value,1]),
+      as.numeric(Merge_diff_extent[diff_extent_value,3]),
+      as.numeric(Merge_diff_extent[diff_extent_value,2]),sep="_")
+
+# We plot our beloved river colored according to the weight (order)/community size
+Plot_A <- ggplot()+
+  geom_segment(data=edges_DaFr, 
+               aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord), 
+               arrow =arrow(length=unit(0.01,"cm"), ends="last"), linewidth=0.2, colour="grey50", alpha=1)+
+  geom_point(data=nodes_DaFr, aes(x=x, y=y,fill=weight/120000,size=weight/120000), shape=21)+ # here weight/12000 is random decision for plotting
+  scale_fill_viridis(option = "D",discrete = F)+
+  scale_size(guide = "none") +
+  labs(title = paste("River structure", Scenario_name),y="",x="",fill="Comm. Size")+
+  theme_void()
+
+
+# We plot our beloved river colored according to the weight (order)/community size
+Alpha_plot <- (edges_DaFr %>% left_join(Dry_DataFrame_out[[Scen_Position]],by=c("from"="Site_ID")) %>% pull(Permanence)/
+               (max(edges_DaFr %>% left_join(Dry_DataFrame_out[[Scen_Position]],by=c("from"="Site_ID")) %>% pull(Permanence))*2))+0.5
+
+Plot_B <- edges_DaFr %>% 
+  left_join(Dry_DataFrame_out[[Scen_Position]],by=c("from"="Site_ID")) %>% 
+  ggplot()+
+  geom_curve(aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord,colour=Permanence),
+                                arrow =arrow(length=unit(0.01,"cm"), ends="last"),
+               alpha=Alpha_plot,
+               linewidth=1.5, 
+               curvature=0.1)+
+  geom_point(data=nodes_DaFr,aes(x=x, y=y,size=weight/120000), colour="grey30", shape=16)+
+  scale_colour_viridis(option = "D",discrete = F,direction = -1,limits=c(0,48))+
+  scale_size(guide = "none")+
+  labs(title = paste("Scenario",Scenario_name),y="",x="",fill="Permanence")+
+  theme_void()
+
+# We plot our beloved river colored according to the weight (order)/community size
+Plot_C <- edges_DaFr %>% left_join(  Poll_DataFrame_out[[Sites_to_Pollut_Position]],by=c("from"="Site_ID")) %>% 
+  ggplot()+
+  geom_curve(aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord,colour=Pollution),
+             arrow =arrow(length=unit(0.01,"cm"), ends="last"), 
+             linewidth=1.5, 
+             alpha=0.5,
+             curvature=0.1)+
+  geom_point(aes(x=x, y=y,size=weight/120000), colour="grey30", shape=16)+
+  scale_color_manual(values = c("blue","red"))+
+  scale_size(guide = "none") +
+  labs(title = paste("Scenario",Scenario_name),y="",x="",fill="Pollution")+
+  theme_void()
+
+
 plot_D <- gridExtra::arrangeGrob(
   DataFrame_out_Scen %>% 
   bind_cols(as.data.frame(filter_Pollution_test)) %>% 
@@ -254,6 +270,7 @@ plot_D <- gridExtra::arrangeGrob(
   geom_tile(aes(y=as.factor(name),x=Site_ID,fill=value))+
   scale_fill_viridis(direction = -1)+
   theme_classic()+
+  labs(fill="Filt")+
   theme(axis.text.y = element_blank(),
         axis.ticks.y = element_blank(),
         legend.position = "right"),
@@ -265,6 +282,7 @@ plot_D <- gridExtra::arrangeGrob(
   geom_tile(aes(y=as.factor(name),x=Site_ID,fill=Permanence))+
   scale_fill_viridis(option = "A",direction = -1)+
   theme_classic()+
+  labs(fill="Perm")+
   theme(axis.text.y = element_blank(),
         axis.ticks.y = element_blank(),
         legend.position = "right"),
@@ -397,7 +415,17 @@ Riv_AerAct <- spat_temp_index(Inermitence_dataset = Int_dataset,
 
 save(list = "Riv_AerAct",file = "Riv_AerAct_STcon.RData")
 
+
+
+# After running in the server we reload the data and prepare it for the model 
+# Some fast checkings
 length(output_to_simulate)
+
+Flow_DB_toSTcon_Sc <- list()
+for (diff_extent_value in 1:length(output_to_simulate)) {
+  Flow_DB_toSTcon_Sc[[diff_extent_value]] <- output_to_simulate[[diff_extent_value]][[3]]
+}
+
 # After running in the server we reload the data and prepare it for the model 
 Jumps_Per_Pack_Beg <- rep(15,ceiling(length(output_to_simulate)/15)-1)
 Jumps_Per_Pack_Beg <- c(0,Jumps_Per_Pack_Beg)
@@ -405,9 +433,10 @@ Jumps_Per_Pack_End <- rep(15,ceiling(length(output_to_simulate)/15)-1)
 Jumps_Per_Pack_End <- c(0,Jumps_Per_Pack_End)
 Beg=1; End=15
 Riv_Drift_Tot <- list(); Riv_Swim_Tot <- list(); Riv_AerAct_Tot <- list()
-for (pack_scenario in 17:ceiling(length(output_to_simulate)/15)) {
+for (pack_scenario in 1:ceiling(length(output_to_simulate)/15)) {
   Beg=Beg+Jumps_Per_Pack_Beg[pack_scenario]
-  End=End+Jumps_Per_Pack_End[pack_scenario]
+  End=End+Jumps_Per_Pack_End[pack_scenario] 
+  cat("We are at",Beg ,"and", End, "\n")
   Scenario <- cbind(Beg,End)
   Flow_DB_toSTcon <- Flow_DB_toSTcon_Sc[Beg:End]
   # Charge drifters 
@@ -547,8 +576,8 @@ for (it in 1:10) { # We repeat 10 times the same process
 resume.out(a)
 }
 toc()
-save(Diff_scenarios,file = "343_Scenarios.RData")
-save(output_to_simulate, file="343_Scenarios_OutputToSimul.RData")
+save(Diff_scenarios,file = "All_Scenarios.RData")
+save(output_to_simulate, file="All_Scenarios_OutputToSimul.RData")
 # 13593.65 
 
 # > <
@@ -605,34 +634,58 @@ for (round in 1:(Leng_scenarios*leng_disp)) {
                                     "S"=S_site,"B"=B_site))
   Res_nodes_DaFr <- bind_rows(Res_nodes_DaFr,Result_df)
 }
-save(Res_nodes_DaFr,file="343_Results_scenarios.RData")
+save(Res_nodes_DaFr,file="All_Results_scenarios.RData")
 
 
 # 6. Plots and results outputs ####
 library(tidyverse);library(viridis)
-load("343_Results_scenarios.RData")
+load("All_Results_scenarios.RData")
 
 colnames(Res_nodes_DaFr)
-Data_To_Plot <- Res_nodes_DaFr %>% filter(Disp==0.15)
-Data_To_Plot_Ref <- Res_nodes_DaFr %>% filter(Disp==0.15,Scenario=="0.01_0.01")
-Data_To_Plot_Ref
+Data_To_Plot <- Res_nodes_DaFr %>% 
+  filter(Disp==0.15) %>% 
+  mutate(Dry_ext=as.numeric(Dry_ext),Dry_patt=as.numeric(Dry_patt),Pollut_ext=as.numeric(Pollut_ext)) 
+Data_To_Plot_Ref <- Res_nodes_DaFr %>% filter(Disp==0.15,Scenario=="0.01_0.01") %>% 
+                    mutate(Dry_ext=as.numeric(Dry_ext),Dry_patt=as.numeric(Dry_patt),Pollut_ext=as.numeric(Pollut_ext)) 
 
-# Big raster plot with Mean, Median and Difference
-Big_Ref <- Data_To_Plot %>% select(Scenario,Site_ID,Dry_ext, Pollut_ext, Dry_patt ,IBMWP) %>% 
+Data_To_Plot %>%
+  ggplot()+geom_point(aes(x=Mean_STcon,y=IBMWP))+
+  geom_smooth(aes(x=Mean_STcon,y=IBMWP,color=Pollut_ext,group=Pollut_ext),method = "loess")+
+  scale_color_viridis()
+
+
+
+# Big raster plot to draw the effect of 
+Big_Ref <- Data_To_Plot %>% select(Scenario,Site_ID,Pollution,Dry_ext, Pollut_ext, Dry_patt ,
+                                   "Ref_IBMWP"=IBMWP) %>% 
                             filter(Pollut_ext==0.01)
 
 Data_To_Plot %>% 
   select(Scenario, Site_ID,Pollution,Dry_ext, Pollut_ext, Dry_patt ,IBMWP) %>% 
-  filter(Pollut_ext!=0.01) %>% 
-  left_join(Big_Ref, by=c("Dry_ext", "Dry_patt"), relationship = "many-to-many") %>% 
-  mutate(Diff=IBMWP.y-IBMWP.x) %>% 
-  group_by(Scenario.x,Dry_ext, Pollut_ext.x, Dry_patt) %>% 
-  summarise(Mean_Diff=mean(Diff),Med_Diff=median(Diff),sd_Diff=sd(Diff)) %>% 
-  pivot_longer(5:7) %>% 
+  #filter(Pollut_ext!=0.01) %>% 
+  left_join(Big_Ref, by=c("Site_ID","Dry_ext","Dry_patt"),
+            relationship = "many-to-many") %>% 
+  mutate(Diff=IBMWP-Ref_IBMWP) %>% 
+  mutate(Dry_ext = plyr::round_any(Dry_ext, 0.15), 
+         Dry_patt = plyr::round_any(Dry_patt, 0.25)) %>% 
+  group_by(Pollution.x,Dry_ext, Pollut_ext.x, Dry_patt) %>% 
+  summarise(Med_Diff=median(Diff)) %>% #Mean_Diff=mean(Diff),Med_Diff=median(Diff),sd_Diff=sd(Diff)) %>% 
+  #pivot_longer(6) %>% 
   ggplot()+
-  geom_raster(aes(x=Dry_ext,y=Dry_patt,fill=value),interpolate = T)+
-  scale_fill_viridis()+
-  facet_wrap(Pollut_ext.x~name,ncol=3)
+  geom_raster(aes(x=Dry_ext,y=Dry_patt,fill=Med_Diff),interpolate = T)+
+  geom_contour(aes(x=Dry_ext,y=Dry_patt,z=Med_Diff),colour="black",
+               breaks = c(0,-25,-50,75,-100,-125,-150))+
+  #scale_fill_viridis(direction=-1)+
+  scale_fill_gradient2(low = viridis(2,option = "H")[2],high=viridis(2,option = "H")[1],midpoint = -50)+
+  facet_wrap(Pollut_ext.x~Pollution.x,ncol=2,strip.position = "right")+
+  theme(legend.position = "none",
+    plot.background = element_blank(),
+    panel.background = element_blank(),
+    axis.ticks = element_blank(),
+    #axis.text = element_blank(),
+    panel.grid = element_blank(),
+    strip.background=element_blank()
+  )
 
 
 gridExtra::grid.arrange(
