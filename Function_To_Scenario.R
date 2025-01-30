@@ -211,7 +211,6 @@ filter_Pollution_test <- t(filter_Pollution)
 colnames(filter_Pollution_test) <- paste(seq(1:length(Spp_tolerance)),"Spe",sep="_")
 
 # Final diagnostic plots
-
 Scenario_name <- paste(as.numeric(Merge_diff_extent[diff_extent_value,1]),
       as.numeric(Merge_diff_extent[diff_extent_value,3]),
       as.numeric(Merge_diff_extent[diff_extent_value,2]),sep="_")
