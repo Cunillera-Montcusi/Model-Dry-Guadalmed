@@ -363,12 +363,13 @@ colnames(Res_nodes_DaFr)
 Res_nodes_DaFr %>% 
   mutate(Pollut_ext=as.numeric(Pollut_ext)) %>% 
   ggplot()+geom_point(aes(x=Mean_STcon,y=S_Sen))+
-  geom_smooth(aes(x=Mean_STcon,y=S_Sen,color=Pollut_ext,group=Pollut_ext),method = "loess")+
+  geom_smooth(aes(x=Mean_STcon,y=S_Sen,color=Pollut_ext,group=Pollut_ext),method = "lm")+
   scale_color_viridis()+
   facet_wrap(.~Disp)
 
+# We filtrate dispersal 1 
 Data_To_Plot <- Res_nodes_DaFr %>% 
-  filter(Disp==0.15) %>% 
+  filter(Disp==1) %>% 
   mutate(Pollut_ext=as.numeric(Pollut_ext)) 
 
 
@@ -378,7 +379,8 @@ Big_Ref <- Data_To_Plot %>% select(Site_ID , Mean_STcon ,Pollut_ext,Pollution,
                             filter(Pollut_ext==0.01)
 
 
-
+# Loop thaht prints all model results and calculates "hypothetical" intersection but it does
+# not really do thr trick... 
 Inters_Line <- data.frame()
 for (Pollution_Scenario in 2:length(Genal_Pollut_Ext)) {
   Out_test <-Data_To_Plot %>% 
@@ -396,13 +398,12 @@ for (Pollution_Scenario in 2:length(Genal_Pollut_Ext)) {
 
 model <- lm(Diff~Pollution.x*Mean_STcon,data=Out_test)
 #print(c(summary(model)[[4]][4,4],Genal_Pollut_Ext[Pollution_Scenario]))
-print(summary(model))
+#print(summary(model))
 intersec_point <- -(coef(model)[2]/coef(model)[4])
 Inters_Line_temp <-data.frame(
   "Inters"=intersec_point,
   "Pollut_ext"=Genal_Pollut_Ext[Pollution_Scenario])
 Inters_Line <- bind_rows(Inters_Line,Inters_Line_temp)
-
 }
 
 Data_To_Plot %>% 
@@ -430,17 +431,28 @@ Data_To_Plot %>%
 
 Inters_Line %>% ggplot(aes(x=Pollut_ext,y=Inters))+geom_point()
 
-# Extract model coefficien
-
-# Compute intersection point
-intersection_connectivity <- - beta2 / beta3
-print(intersection_connectivity)
-
-# Model generation and testing
-mod.RMA.S1 <-nlme::lme(Diff~ Pollution.x*Mean_STcon, random = ~1|Site_ID,data=Out_test,method="REML")
-summary(mod.RMA.S1)
-multcomp::cld(lsmeans::lsmeans(mod.RMA.S1,~  Pollution.x*as.factor(Pollut_ext.x)),alpha= 0.05,Letters = letters,adjust = "Bonferroni") ###  Tukey-adjusted comparisons 
-
+Data_To_Plot %>% 
+  filter(Pollut_ext!=0.01) %>% 
+  select(Site_ID,Pollution ,Pollut_ext, Mean_STcon ,IBMWP) %>% 
+  left_join(Big_Ref, by=c("Site_ID","Mean_STcon"),relationship = "many-to-many") %>%
+  group_by(Site_ID,Pollution.x,Pollut_ext.x) %>% 
+  summarise(Mean_STcon=mean(Mean_STcon),
+            IBMWP=mean(IBMWP),
+            Ref_IBMWP=mean(Ref_IBMWP)
+  ) %>%ungroup() %>% 
+  mutate(ST_con_RANGE=
+           ifelse(Mean_STcon<=quantile(Mean_STcon,0.25),"A",
+           ifelse(Mean_STcon>quantile(Mean_STcon,0.25) & Mean_STcon<=quantile(Mean_STcon,0.5),"B",
+           ifelse(Mean_STcon>quantile(Mean_STcon,0.5) & Mean_STcon<=quantile(Mean_STcon,0.75),"C",
+           ifelse(Mean_STcon>quantile(Mean_STcon,0.75), "D","MISTAKE"))))
+         ) %>% 
+  mutate(Diff=IBMWP-Ref_IBMWP) %>% 
+  ggplot()+
+  geom_boxplot(aes(x=ST_con_RANGE,y=Diff,colour=Pollution.x))+
+  scale_colour_viridis(discrete = T)+
+  facet_wrap(.~Pollut_ext.x,ncol=4)+
+  #scale_x_reverse()+ #limits=c(0.75,0)
+  theme_classic()
 
 
 
