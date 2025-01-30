@@ -213,7 +213,7 @@ plots_temp <- list(gridExtra::arrangeGrob(Plot_A,Plot_B,Plot_C,ncol=3),plot_D)
 plots_diagnosis[[Pollution_Scenario]] <- plots_temp
 output_to_simulate[[Pollution_Scenario]] <- list(filter_Pollution,DataFrame_out_Scen,Flow_DB_toSTcon)
 }
-
+save(plots_diagnosis,file = "Genal_Diagnosis_Plots.RData")
 
 # 6. Coaslescent runs ####
 source("H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R")
