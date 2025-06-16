@@ -43,7 +43,7 @@ summary(as.vector(Scen_AAct_STconmat[[1]])[which(as.vector(Scen_AAct_STconmat[[1
 summary(as.vector(Scen_Swim_STconmat[[1]]))
 summary(as.vector(Scen_Drift_STconmat[[1]]))
 
-Orig_dispersal_pollution <- read.csv(file = paste0(getwd(), "/data/pollution_dispersal.csv")) %>% drop_na()
+Orig_dispersal_pollution <- read.csv(file = paste0(getwd(), "/data/Genal_pollution_dispersal.csv")) %>% drop_na()
 
 nodes_DaFr <- bind_cols(
 Sites_coordinates_Campaings_To_Run[[1]] %>%rename("Site_ID"="Node_ID") ,
@@ -226,7 +226,7 @@ source("H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R")
 ## Community size
 # Area total is the weight. But we must convert it to not take too long computation times 
 # We define parameters of Community area to transform weight to community size (J)
-Max_Area<-(Years_Of_Drying*12)#*max(nodes_DaFr$weight)
+Max_Area<-((Years_Of_Drying*365))#*max(nodes_DaFr$weight)
 Jmin <- 50 # What will be the minimum size at which we will consider "0" 
 J.max<-200+Jmin # What is the maximum J that we want to assign to a community
 b.ef<-(0.8) # The coefficient of change. If 1 we do a direct proportion between the two but minimimum becomes "1" (only 1 indiv)
@@ -244,13 +244,15 @@ Meta_t0 <- matrix(nrow = length(pool_200), ncol =nrow(nodes_DaFr), 1) #Previous 
 # other dispersal abilities. They push "overall connectivity" towards higher or lower connections.
 #summary(as.vector(Scen_Swim_STconmat[[pollut]])[-which(as.vector(Scen_Swim_STconmat[[pollut]])==100)]) 
 
-dispersal_test <- c(0.15,0.5,1) # We set the dispersal abilities that we want
+dispersal_test <- c(0.25,1,4) # We set the dispersal abilities that we want
 
 Disp_Str <- Orig_dispersal_pollution%>% 
+  filter(dispersal_strategy_taxa!="dis3") %>% 
+  drop_na() %>% 
   mutate(Disp_Strateg=case_when(
-    str_detect(dispersal_strategy ,"dis4") ~ "3", 
-    str_detect(dispersal_strategy,"dis1") ~ "1",
-    str_detect(dispersal_strategy,"dis2") ~ "2",
+    str_detect(dispersal_strategy_taxa ,"dis4") ~ "3", 
+    str_detect(dispersal_strategy_taxa,"dis1") ~ "1",
+    str_detect(dispersal_strategy_taxa,"dis2") ~ "2",
     TRUE ~ "MISTAKE")) %>% 
   mutate(Disp_Strateg=as.numeric(Disp_Strateg)) %>% pull(Disp_Strateg)
 
@@ -355,6 +357,60 @@ for (round in 1:(Leng_scenarios*leng_disp)) {
 }
 save(Res_nodes_DaFr,file="Genal_Results_scenarios.RData")
 
+
+# Analisis of correspondence between Genal and Genal 
+# We charge the coordinates of Genal sampling
+Genal_Correspondence <- readxl::read_excel("data/Genal_Correspondence.xlsx") %>% 
+  mutate(Site=matrix(unlist(lapply(strsplit(Full_ID, split='_', fixed=TRUE), `[`, 1:2)),ncol=2, byrow=TRUE)[,1]) %>% 
+  group_by(Site) %>% summarise(long=mean(long),lat=mean(lat))
+# We transform these coordinates from UTM to lat/long
+Res_nodes_DaFr_to_coords <- Res_nodes_DaFr %>% filter(Disp==4,Pollut_ext==0.01) %>% select(1:4)
+
+coords <- cbind(Res_nodes_DaFr_to_coords %>% pull(X1), Res_nodes_DaFr_to_coords %>% pull(X2))
+coords_lat_lon <- data.frame()
+for (RoW_Row in 1:nrow(coords)) {
+point_utm <- sf::st_sfc(sf::st_point(coords[RoW_Row,]),
+  crs = paste0("+proj=utm +zone=", 30, " +datum=WGS84 +units=m +no_defs"))
+coords_temp <- sf::st_coordinates(sf::st_transform(point_utm, crs = 4326)) 
+coords_lat_lon <- bind_rows(coords_lat_lon,as.data.frame(coords_temp)%>% mutate(id=RoW_Row))
+}
+
+# We charge the function to find theh closest point and loook for it
+find_closest_sites <- function(set_A, set_B) {
+  results <- data.frame()
+  
+  for (i in 1:nrow(set_A)) {
+    point_A <- set_A[i, ]
+    distances <- geosphere::distHaversine(
+      matrix(c(set_B$X, set_B$Y), ncol = 2),
+      c(point_A$long, point_A$lat)
+    )
+    
+    min_index <- which.min(distances)
+    closest_B <- set_B[min_index, ]
+    
+    results <- rbind(results, data.frame(
+      A_id = point_A$Site,
+      B_id = closest_B$id,
+      distance_km = distances[min_index] / 1000
+    ))
+  }
+  
+  return(results)
+}
+Clos_Points <- find_closest_sites(set_A = Genal_Correspondence,set_B = coords_lat_lon)
+
+# We plot it to check properly how it looks like and who is what
+ggplot()+
+  geom_point(data=coords_lat_lon, aes(x=X, y=Y))+
+  geom_point(data=Genal_Correspondence, aes(x=long, y=lat),colour="red") + 
+  geom_text(data=Genal_Correspondence, aes(x=long, y=lat,label=Site))
+
+# We remove those sites that are above 1 km
+Clos_Points <- Clos_Points %>% filter(distance_km<1)
+
+Res_nodes_DaFr %>% filter(Site_ID%in%Clos_Points$B_id)
+
 # 6. Plots and results outputs ####
 library(tidyverse);library(viridis)
 load("Genal_Results_scenarios.RData")
@@ -362,15 +418,123 @@ load("Genal_Results_scenarios.RData")
 colnames(Res_nodes_DaFr)
 Res_nodes_DaFr %>% 
   mutate(Pollut_ext=as.numeric(Pollut_ext)) %>% 
-  ggplot()+geom_point(aes(x=Mean_STcon,y=S_Sen))+
-  geom_smooth(aes(x=Mean_STcon,y=S_Sen,color=Pollut_ext,group=Pollut_ext),method = "lm")+
+  ggplot()+geom_point(aes(x=Mean_STcon,y=IBMWP))+
+  geom_smooth(aes(x=Mean_STcon,y=IBMWP,color=Pollut_ext,group=Pollut_ext),method = "lm")+
   scale_color_viridis()+
   facet_wrap(.~Disp)
 
-# We filtrate dispersal 1 
 Data_To_Plot <- Res_nodes_DaFr %>% 
-  filter(Disp==1) %>% 
-  mutate(Pollut_ext=as.numeric(Pollut_ext)) 
+  filter(Disp==4) %>% 
+  mutate(Pollution = case_when(
+    str_detect(Pollution ,"YES_Poll") ~ "Polluted",
+    str_detect(Pollution ,"Non_Poll") ~ "Unpolluted")) %>%
+  mutate(Pollution=factor(Pollution,levels=c("Unpolluted","Polluted"))) %>% 
+  mutate(Pollut_ext=as.numeric(Pollut_ext)) %>% 
+  group_by(Pollut_ext) %>% 
+  mutate(Max_STcon=max(Mean_STcon)) %>% 
+  mutate(Sc_STcon=Mean_STcon/Max_STcon)
+
+
+Orig_sampling <- read.csv(file = paste0(getwd(), "/data/Genal_sampling.csv"),sep = ";") %>% drop_na() %>% 
+                 mutate(N=1) %>% group_by(Campaign,Site) %>% 
+                 summarise(Rich=sum(N))
+
+R2_Data_To_Plot <- Data_To_Plot %>%
+  filter(Pollut_ext==0.01) %>% 
+  filter(Site_ID%in%Clos_Points$B_id) %>% 
+  left_join(Clos_Points,by=c("Site_ID"="B_id")) %>% 
+  left_join(Orig_sampling,by=c("A_id"="Site")) %>% 
+  group_by(Campaign) %>% 
+  summarise(R2=cor(S,Rich),Pos_X=mean(S),Pos_Y=mean(Rich))
+
+Data_To_Plot %>%
+  filter(Pollut_ext==0.01) %>% 
+  filter(Site_ID%in%Clos_Points$B_id) %>% 
+  left_join(Clos_Points,by=c("Site_ID"="B_id")) %>% 
+  left_join(Orig_sampling,by=c("A_id"="Site")) %>% 
+  group_by(Campaign) %>% 
+  mutate(R2=cor(S,Rich),Pos_X=mean(S),Pos_Y=mean(Rich)) %>% 
+  ggplot(aes(x=S,y=Rich,colour=as.factor(Campaign),linewidth=R2))+
+  geom_point(size=3,alpha=0.6)+
+  geom_smooth(method="lm",se=F)+
+  ggrepel::geom_label_repel(data=R2_Data_To_Plot,aes(x=Pos_X,y=Pos_Y,label=round(R2,2)),show.legend=F)+
+  scale_colour_manual(values = c(RColorBrewer::brewer.pal(n = 6,name = "PuOr")[c(6,5,2)],RColorBrewer::brewer.pal(n = 6,name = "PuOr")[c(1,2,6)]))+
+  #scale_colour_brewer(palette = "PuOr",direction = -1)+
+  labs(colour="Campaign")+
+  guides(linewidth="none")+
+  theme_classic()
+
+
+  
+Data_To_Plot %>% 
+  #filter(Site_ID%in%Clos_Points$B_id) %>% 
+  ggplot(aes(x=Sc_STcon, y=IBMWP,
+             colour=Pollut_ext,fill=Pollut_ext))+
+  geom_jitter(alpha=0.2,shape=16,size=1.2,width = 0.02)+
+  geom_smooth(aes(groups=as.factor(Pollut_ext)),method="lm",se=F,linewidth=1.4,colour="black")+
+  geom_smooth(aes(groups=as.factor(Pollut_ext)),method="lm",se=F,linewidth=1)+
+  scale_fill_gradient2(low = "white",mid = "grey60",high = "darkred",midpoint=0.5)+
+  scale_colour_gradient2(low = "white",mid = "grey60",high = "darkred",midpoint=0.5)+
+  labs(color="Pollution extent",fill="Pollution extent",
+       x="Dispersal resistance",y="IBMWP")+
+  #facet_wrap(Pollut_ext~Dry_ext, ncol=3,strip.position = "right",axis.labels = "all",axes = "all")+
+  theme(legend.position = "bottom")+
+  theme_classic()
+
+Data_To_Plot %>% 
+  #filter(Site_ID%in%Clos_Points$B_id) %>% 
+  filter(Pollut_ext!=0.01) %>% 
+  ggplot(aes(x=Sc_STcon, y=IBMWP,
+             colour=Pollut_ext,fill=Pollut_ext))+
+  geom_jitter(alpha=0.2,shape=16,size=1.2,width = 0.02)+
+  #geom_smooth(aes(groups=as.factor(Pollut_ext)),method="lm",se=F,linewidth=1.4,colour="black")+
+  geom_smooth(aes(groups=as.factor(Pollut_ext),linetype=Pollution),method="lm",se=F,linewidth=2)+
+  scale_fill_gradient2(low = "white",mid = "grey60",high = "darkred",midpoint=0.5)+
+  scale_colour_gradient2(low = "white",mid = "grey60",high = "darkred",midpoint=0.5)+
+  labs(color="Pollution extent",fill="Pollution extent",
+       x="Dispersal resistance",y="Species richnness")+
+  #facet_wrap(Pollut_ext~Dry_ext, ncol=3,strip.position = "right",axis.labels = "all",axes = "all")+
+  theme(legend.position = "bottom")+
+  theme_classic()
+
+
+
+Data_To_Plot %>% 
+  mutate(Dry_Categ = 
+           case_when(
+             Mean_STcon<7 ~ "A",
+             Mean_STcon>7 & Mean_STcon<=8 ~ "B",
+             Mean_STcon>8 & Mean_STcon<=9 ~ "B",
+             Mean_STcon>9 & Mean_STcon<=10 ~ "C",
+             Mean_STcon>10 & Mean_STcon<=11 ~ "D",
+             #Mean_STcon>11 & Mean_STcon<=12 ~ "E",
+             #Mean_STcon>12 & Mean_STcon<=13 ~ "F",
+             Mean_STcon>11 ~ "E")) %>% 
+  group_by(Pollut_ext,Dry_Categ,Pollution) %>% 
+  summarise(M_IBMWP=mean(S)) %>% 
+  pivot_wider(names_from = Pollution,values_from = c(M_IBMWP)) %>% 
+  mutate(Performance=Unpolluted-Polluted,
+         Performance_Perc=((Polluted-Unpolluted)/Unpolluted)*100) %>% 
+  filter(!Pollut_ext%in%c(0.01,0.9)) %>% 
+  ggplot()+
+  #geom_hline(yintercept = c(-25,-50,-75),colour="grey80")+
+  #geom_hline(yintercept = c(-0,-10,-20,-30),colour="grey80")+
+  geom_jitter(aes(x=Dry_Categ,y=Performance,colour=Pollut_ext), width = 0.05,size=2,alpha=0.6)+
+  geom_smooth(aes(x=Dry_Categ,y=Performance,colour=Pollut_ext,group=Pollut_ext),se=F,method="lm")+
+  scale_colour_gradient2(low = "grey30",mid = "grey60",high = "darkred",midpoint=0.5)+
+  labs(colour="Pollution Extent", y="Performance (Diff. between Imp. and Non.Imp)", x="Drying category (Dispersal resistance)")+
+  #facet_wrap(Pollut_ext~., ncol=1,strip.position = "right",axis.labels = "all",axes = "all")+
+  theme_classic()+
+  theme(legend.position = "right")+
+  facet_wrap(Pollut_ext~.,ncol=6)
+
+
+
+
+
+
+
+
 
 
 # Big raster plot to draw the effect of 
