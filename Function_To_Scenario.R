@@ -655,22 +655,22 @@ Data_To_Plot <- Res_nodes_DaFr %>%
   mutate(Sc_STcon=Mean_STcon/Max_STcon)
 
 colnames(Data_To_Plot) 
-#png(filename = "Big test.png",width = 3200,height = 2500,units = "px",res =300)
+png(filename = "Figure_3.png",width = 2300,height = 2500,units = "px",res =300)
 Data_To_Plot %>% 
-  filter(Pollut_ext%in%c(0.01,0.5,0.9), 
-         Dry_ext%in%c(0.25,0.5,0.9)) %>% 
+  filter(Pollut_ext%in%c(0.01,0.5,0.75), 
+         Dry_ext%in%c(0.25,0.5,0.75)) %>% 
   ggplot(aes(x=Sc_STcon, y=IBMWP,
              colour=as.factor(1-Dry_patt),fill=as.factor(1-Dry_patt)))+
-  geom_point(alpha=0.2,shape=16,size=0.8)+
+  geom_point(alpha=0.1,shape=16,size=0.8)+
   geom_smooth(method="lm",se=F)+
   scale_color_viridis(option="E",discrete = T)+
   scale_fill_viridis(option="E",discrete = T)+
-  labs(color="Drying intensity",fill="Drying intensity",
-       x="Dispersal resistance",y="IBMWP")+
+  labs(color="Drying intensity",fill="Drying intensity",x="Dispersal resistance",y="IBMWP")+
   facet_wrap(Pollut_ext~Dry_ext, ncol=3,strip.position = "right",axis.labels = "all",axes = "all")+
-  theme(legend.position = "bottom")+
-  theme_classic()
-#dev.off()
+  theme_classic()+
+  theme(strip.background = element_blank(),strip.text.x = element_blank(),
+        legend.position = "bottom")
+dev.off()
 
 Poll_plot <- Data_To_Plot %>% 
   filter(Pollut_ext%in%c(0.01,0.5,0.9), 
@@ -711,7 +711,7 @@ Ref_Performance <- Data_To_Plot %>%
   summarise(M_IBMWP=mean(IBMWP)) %>% 
   pivot_wider(names_from = Pollution,values_from = c(M_IBMWP)) %>%
   mutate(Performance=Unpolluted-Polluted) %>%
-  filter(Dry_ext==0.01,Dry_patt==0.9) %>%
+  filter(Dry_ext==0.01,Dry_patt==0.9,Pollut_ext==0.01) %>%
   ungroup() %>% select(Pollut_ext,Performance) %>% 
   rename(Ref_Performance=Performance)
   
@@ -720,8 +720,8 @@ Data_To_Plot %>%
   summarise(M_IBMWP=mean(IBMWP)) %>% 
   pivot_wider(names_from = Pollution,values_from = c(M_IBMWP)) %>%
   mutate(Performance=Unpolluted-Polluted) %>% 
-  left_join(Ref_Performance, by="Pollut_ext") %>%
-  #mutate(Ref_Performance=as.numeric(Ref_Performance[,2])) %>% 
+  #left_join(Ref_Performance, by="Pollut_ext") %>%
+  mutate(Ref_Performance=as.numeric(Ref_Performance[,2])) %>% 
   mutate(Perf_In_Perc=(Performance/Ref_Performance)*100) %>% 
   #filter(Pollut_ext%in%c(0.01,0.25,0.5,0.9)) %>% 
   ggplot()+
