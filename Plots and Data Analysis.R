@@ -16,6 +16,64 @@ Data_To_Plot <- Res_nodes_DaFr %>%
   mutate(Max_STcon=max(Mean_STcon)) %>% 
   mutate(Sc_STcon=Mean_STcon/Max_STcon)
 
+unique(
+Data_To_Plot %>%
+  mutate(Dry_ext=Dry_ext*100,
+         Dry_int=(1-Dry_patt),
+         Permanence=(Permanence/48)*100) %>% 
+  filter(Dry_ext==50,Dry_int==0.5) %>% 
+  pull(Permanence)
+)
+
+
+Data_To_Plot %>%
+  mutate(Dry_ext=Dry_ext*100,
+         Dry_int=(1-Dry_patt),
+         Permanence=(Permanence/48)*100) %>% 
+  mutate(Dry_ext=paste("Dry ext=", Dry_ext,sep=" ")) %>% 
+  ggplot(aes(x=as.factor(Dry_int),y=Mean_STcon ,fill=as.factor(Dry_int)))+
+  scale_color_viridis(option="E",discrete = T)+
+  scale_fill_viridis(option="E",discrete = T)+
+  geom_boxplot()+
+  labs(color="Drying intensity",fill="Drying intensity",x="Drying intensity",
+       y="Dispersal resistance (STcon)")+
+  facet_wrap(Dry_ext~., ncol=5,strip.position = "top",axis.labels = "all",axes = "all")+
+  theme_classic()+
+  theme(legend.position = "right",
+          legend.key = element_rect(fill = "transparent", colour = NA),
+          panel.background = element_rect(colour="orange"),
+          strip.text = element_text(colour="darkorange"),
+          strip.background =  element_rect(fill=alpha("orange",0.2)),
+          axis.text.x=element_text(colour=viridis(n = 1,option = "E")),
+          axis.title.x=element_text(colour=viridis(n = 1,option = "E")))
+  
+Data_To_Plot %>%
+  mutate(Dry_ext=Dry_ext*100,Dry_int=(1-Dry_patt),
+         Permanence=(Permanence/48)*100) %>%
+  filter(Pollut_ext==0.01) %>% 
+  mutate(Dry_ext=paste("Dry ext=", Dry_ext,sep=" ")) %>% 
+  group_by(Dry_ext, Dry_int, Pollut_ext,Site_ID) %>% 
+  mutate(Groups=ifelse(Permanence==100, "100 %",
+                ifelse(Permanence<99 & Permanence>75, ">75 %",
+                ifelse(Permanence<74 & Permanence>50,">50 %",
+                ifelse(Permanence<49 & Permanence>25,">25","<25"))))) %>%
+  mutate(Groups=factor(Groups,levels=c("100 %",">75 %",">50 %",">25","<25"))) %>% 
+  select(Groups) %>% 
+  group_by(Dry_ext, Dry_int, Pollut_ext,Groups) %>% summarise(Groups_N=n()/225) %>% 
+  ggplot(aes(x=as.factor(Dry_int),y=Groups_N,fill=Groups))+
+  geom_bar(stat = "identity")+
+  scale_fill_brewer(palette = "BrBG",direction = -1)+
+  labs(fill="Drying categories",x="Drying intensity",y="Dryin categories (%)")+
+  facet_wrap(Dry_ext~., ncol=5,strip.position = "top",axis.labels = "all",axes = "all")+
+  theme_classic()+
+  theme(legend.position = "right",
+        legend.key = element_rect(fill = "transparent", colour = NA),
+        panel.background = element_rect(colour="orange"),
+        strip.text = element_text(colour="darkorange"),
+        strip.background =  element_rect(fill=alpha("orange",0.2)),
+        axis.text.x=element_text(colour=viridis(n = 1,option = "E")),
+        axis.title.x=element_text(colour=viridis(n = 1,option = "E")))
+
 
 # Figure 3 ####
 
@@ -212,6 +270,7 @@ Data_To_Plot %>%
         axis.text.x=element_text(colour="darkred"),
         axis.title.x=element_text(colour="darkred"))
 dev.off()
+
 
 
 Ref_Performance <- Data_To_Plot %>% 
