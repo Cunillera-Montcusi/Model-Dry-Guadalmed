@@ -1,9 +1,10 @@
 
 library(tidyverse);library(viridis);library(ggnetwork)
 
-load("C:/Users/David CM/Dropbox/DAVID DOC/LLAM al DIA/1. FEHM coses al DIA/7. DRY-GUADALMED/Model-Dry-Guadalmed/All_Scenarios_OutputToSimul.RData")
-load("C:/Users/David CM/Dropbox/DAVID DOC/LLAM al DIA/1. FEHM coses al DIA/7. DRY-GUADALMED/Model-Dry-Guadalmed/Cluster_Code/Sc_1_15/SLURM_PreSTcon.RData")
-load("C:/Users/David CM/Dropbox/DAVID DOC/LLAM al DIA/1. FEHM coses al DIA/7. DRY-GUADALMED/Model-Dry-Guadalmed/All_Results_scenarios.RData")
+# We need to load some specific values to plot determined scenarios
+load("RData_outputs/All_Scenarios_OutputToSimul.RData")
+load("Cluster_Code/Sc_1_15/SLURM_PreSTcon.RData") # Example of Cluste Code PreSTcon data (need to pick it from Cluster code)
+load("RData_outputs/All_Results_scenarios.RData")
 
 Data_To_Plot <- Res_nodes_DaFr %>%
   mutate(Pollution = case_when(
@@ -54,76 +55,3 @@ Plot_IBMWP[[IBMWP_Scenarios]] <- edges_DaFr %>%
 }
 gridExtra::grid.arrange(Plot_IBMWP[[1]],Plot_IBMWP[[2]],Plot_IBMWP[[3]])
                                  
-
-
-
-load("C:/Users/David CM/Dropbox/DAVID DOC/LLAM al DIA/1. FEHM coses al DIA/7. DRY-GUADALMED/Model-Dry-Guadalmed/Genal_Results_scenarios.RData")
-
-Data_To_Plot <- Res_nodes_DaFr %>%
-  mutate(Pollution = case_when(
-    str_detect(Pollution ,"YES_Poll") ~ "Polluted",
-    str_detect(Pollution ,"Non_Poll") ~ "Unpolluted")) %>%
-  mutate(Pollution=factor(Pollution,levels=c("Unpolluted","Polluted"))) %>% 
-  mutate(Pollut_ext=as.numeric(Pollut_ext)) %>% 
-  filter(Pollut_ext==0.5,Disp==0.15)
-
-load("Genal_ClusterCode/SLURM_GenalData.Rdata")
-g <- igraph::graph_from_adjacency_matrix(as.matrix(Network_stru_Campaings_To_Run[[1]]))
-edges_DaFr <- as.data.frame(igraph::get.edgelist(g))
-edges_DaFr <- edges_DaFr %>% dplyr::select("from"=V1, "to"=V2) %>%
-  mutate(X1_coord=2)%>% mutate(Y1_coord=2)%>% 
-  mutate(X2_coord=2)%>% mutate(Y2_coord=2) %>% 
-  mutate(from=as.numeric(from), to=as.numeric(to))
-
-# Fill X and Y coordinate information for edges, using the nodes_DaFr
-for (nodes in 1:nrow(Data_To_Plot)) {
-  edges_DaFr[which(edges_DaFr$from==nodes),3] <- Data_To_Plot[nodes,]$X1
-  edges_DaFr[which(edges_DaFr$from==nodes),4] <- Data_To_Plot[nodes,]$X2
-  edges_DaFr[which(edges_DaFr$to==nodes),5] <- Data_To_Plot[nodes,]$X1
-  edges_DaFr[which(edges_DaFr$to==nodes),6] <- Data_To_Plot[nodes,]$X2
-}
-
-
-#for (IBMWP_Scenarios in 1:length(Scenarios_IBMWP)) {
-nodes_DaFr <- Data_To_Plot 
-
-edges_DaFr %>% 
-    left_join(nodes_DaFr,by=c("from"="Site_ID")) %>% 
-    ggplot()+
-    geom_curve(aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord),alpha=0.5,
-               colour="grey50",arrow =arrow(length=unit(0.01,"cm"), ends="last"),
-               linewidth=1.5, 
-               curvature=0.1)+
-    geom_point(aes(x=X1,y=X2,fill=IBMWP,colour=IBMWP),shape=21,size=4,alpha=0.8)+
-    scale_fill_viridis(option = "E",direction = -1)+
-    scale_colour_viridis(option = "E",direction = -1)+
-    guides(size="none",fill="none")+
-    theme_void()
-
-
-
-
-edges_DaFr %>% 
-  left_join(nodes_DaFr,by=c("from"="Site_ID")) %>% 
-  mutate(At_Risk=ifelse(Mean_STcon>10.5,"Fail","No_Fail")) %>% 
-  ggplot()+
-  geom_curve(aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord),alpha=0.5,
-             colour="grey50",arrow =arrow(length=unit(0.01,"cm"), ends="last"),
-             linewidth=1.5, 
-             curvature=0.1)+
-  geom_point(aes(x=X1,y=X2,fill=At_Risk,colour=At_Risk),shape=21,size=4,alpha=0.8)+
-  #scale_fill_viridis(option = "E",direction = -1)+
-  scale_fill_manual(values=c("red","green"))+
-  scale_color_manual(values=c("red","green"))+
-  guides(size="none",fill="none")+
-  theme_void()
-
-
-
-
-
-
-
-
-#}
-
