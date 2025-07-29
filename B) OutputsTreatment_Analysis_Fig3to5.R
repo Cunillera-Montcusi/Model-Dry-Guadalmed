@@ -1,4 +1,4 @@
-# 6. Plots and results outputs ####
+
 library(tidyverse);library(viridis)
 load("RData_outputs/All_Results_scenarios.RData")
 
