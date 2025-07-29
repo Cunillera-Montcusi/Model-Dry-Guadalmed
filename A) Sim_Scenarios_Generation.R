@@ -1,13 +1,11 @@
 
-# old <- options(stringsAsFactors = FALSE)
-# on.exit(options(old))
-# 
-# MSI_Old <- "E:/"
-# MSI_New <- "C:/Users/David CM/"
-
-
+#________________________###
+#________________________###
 # 1. FAKE RIVER CREATION ####
-# with OCNet we create a river with a determined dendritic structure
+#________________________###
+#________________________###
+
+# With OCNet we create a river with a determined dendritic structure
 library(OCNet)
 
 # With the following function we create a river of a determined size and charactersitics: 
@@ -16,8 +14,7 @@ library(OCNet)
 ocn_TEST <- create_OCN(dimX = 15,dimY = 15,nOutlet = 1,cellsize = 2, expEnergy=0.5)
 # Easy function to draw the river
 draw_simple_OCN(ocn_TEST)
-# FD$A defines the size (area actually) of each cell based on each position in the stream (order of the reach)
-length(ocn_TEST$FD$A)
+
 # FD$W is basically the adjancency matrix that we will have to use to built our graph (from & to matrix)
 ncol(as.matrix(ocn_TEST$FD$W))
 # Coordinates of each of the reaches
@@ -48,8 +45,19 @@ for (nodes in 1:nrow(nodes_DaFr)) {
   edges_DaFr[which(edges_DaFr$to==nodes),6] <- nodes_DaFr[nodes,]$y
 }
 
+#________________________###
+#________________________###
+# 2. SCENATIO DEFINITION ####
+#________________________###
+#________________________###
+
+# We define the elements that we will later use for defining the major scenarios and calculate STcon values
+
+# We define 4 years of drying as a temporal span (a total of 48 months)
 Years_Of_Drying <- 4
 
+# We define the different gradients that we will later combine to define the scenarios
+# We combine 3 major elements Drying extent, Pollution extent and Drying pattern (the length and variation of drying)
 diff_extent <- c(0.01,0.1,0.25,0.35,0.45,0.5,0.65,0.75,0.9)
 diff_extent <- tidyr::crossing(Dry_Ext=diff_extent,
                                Pollut_Ext=diff_extent,
@@ -57,27 +65,34 @@ diff_extent <- tidyr::crossing(Dry_Ext=diff_extent,
                 filter(!Dry_Pattern_End%in%c(0.65))
 nrow(diff_extent)
 
-#diff_extent <- diff_extent %>% filter(Dry_Pattern_End%in%c(0.01,0.25,0.75))
-
 Flow_DB_toSTcon <- list()
 Dry_nodes_DaFr <- nodes_DaFr
 Dry_DataFrame_out <- list()
 
-# Here we decide the extent of drying
+#________________________###
+#________________________###
+# 2.1 Drying extent+intensity  ####
+#________________________###
+#________________________###
+
+# For consistency between scenarios, we define the sites that will be always selected to be dry as a function 
+## of drying extent. 
 Sites_to_Dry<- list()
 Selected_Sites <- sample(nodes_DaFr$Site_ID,size = length(nodes_DaFr$Site_ID),replace = F)
 for (Sit_To_Dry in 1:length(unique(diff_extent$Dry_Ext))) {
-Sites_to_Dry[[Sit_To_Dry]] <-Selected_Sites[1:ceiling(nrow(nodes_DaFr)*unique(diff_extent$Dry_Ext)[Sit_To_Dry])] 
+  Sites_to_Dry[[Sit_To_Dry]] <-Selected_Sites[1:ceiling(nrow(nodes_DaFr)*unique(diff_extent$Dry_Ext)[Sit_To_Dry])] 
 }
 
+# We now assign the drying properties to newtork nodes by defining the network extent (number of sites that will dry)
+## and drying intensity, which corresponds to the length of drying for each nodes that can be bigger or smaller 
+## as a function of "Dry_Pattern_End" (bigger drying times imply higher drying intensity).
+
 for (diff_extent_value in 1:(length(unique(diff_extent$Dry_Ext))*length(unique(diff_extent$Dry_Pattern_End)))) {
-Dry_extent <- 1
-
+Dry_extent <- 1 # We have to define this parameter for the "Function_to_Dry
 Dry_diff_extent <- tidyr::crossing(Dry_Ext=unique(diff_extent$Dry_Ext),Dry_Pattern_End=unique(diff_extent$Dry_Pattern_End))
-
+# Here we define how many sites will be selected to dry at each scenario, which corrresponds to the "Sites_to_Dry_Position"
 Sites_to_Dry_Position <- which(unique(diff_extent$Dry_Ext)==as.numeric(Dry_diff_extent[diff_extent_value,1]))
 
-# 2. Drying pattern  ####
 # Drying patterns are incorporated following different criteria
 # Temporal - years or days time span
 # Duration can either be a single value or vector
@@ -89,11 +104,12 @@ Sites_to_Dry_Position <- which(unique(diff_extent$Dry_Ext)==as.numeric(Dry_diff_
 # skeweed_distr is a modulator for "skewing" the distribution of durations. If all values are 1 it means 
 # that there is the same probability to get any of the duration (it can be useful in case we would like to
 # favor some of the values)
-#source("Function_to_dry.R")
-source(file = paste0(getwd(),"/Function_to_dry.R"))
-#duration_for_function <- seq(from=pull(diff_extent[diff_extent_value,3]),to=1,length.out=6)
+source(file = paste0(getwd(),"/functions/Function_to_dry.R"))
+# The "duration_for_function" defines the intensity of drying generating a sequence that ranges from 
+## the Dry_Pattern_End" to 0.9 and that identifies how much variability (AKA intensity) will drying have. 
 duration_for_function <- 1-seq(diff_extent$Dry_Pattern_End[diff_extent_value],to=0.9,length.out=6)
 
+# We run the "function_to_dry"
 Flow_DB <- function_to_dry(River_nodes = Dry_nodes_DaFr,
                            years =Years_Of_Drying,days =F,
                            duration =duration_for_function,
@@ -102,7 +118,7 @@ Flow_DB <- function_to_dry(River_nodes = Dry_nodes_DaFr,
                            distribution =Sites_to_Dry[[Sites_to_Dry_Position]],
                            skeweed_distr = rep(1,6))
 
-# We add a factor called "Permanence to the "nodes" to plot
+# We add a factor called "Permanence to the "nodes" to plot which is the inverse of Drying
 Dry_nodes_DaFr <- Dry_nodes_DaFr %>% mutate("Permanence"=apply(Flow_DB[,2:ncol(Flow_DB)],2,sum),
                                             "Drying"=nrow(Flow_DB)-apply(Flow_DB[,2:ncol(Flow_DB)],2,sum),
                                             "Dry_Patter"=sd(duration_for_function))
@@ -111,33 +127,50 @@ Dry_DataFrame_out[[diff_extent_value]] <- Dry_nodes_DaFr
 Flow_DB_toSTcon[[diff_extent_value]] <- Flow_DB
 }
 
+#________________________###
+#________________________###
+# 2.2 Pollution extent   ####
+#________________________###
+#________________________###
+
+# We load the database where pollution tollerances from the IBMWP
 Orig_dispersal_pollution <- read.csv(file = paste0(getwd(), "/data/pollution_dispersal.csv")) %>% drop_na()
 
-
+# For consistency between scenarios, we define the sites that will be always selected to be polluted as a function 
+## of pollution extent. 
 Sites_to_Pollut<- list()
 Selected_Sites <- sample(nodes_DaFr$Site_ID,size = length(nodes_DaFr$Site_ID),replace = F)
 for (Sit_To_Pol in 1:length(unique(diff_extent$Pollut_Ext))) {
   Sites_to_Pollut[[Sit_To_Pol]] <-Selected_Sites[1:ceiling(nrow(nodes_DaFr)*unique(diff_extent$Pollut_Ext)[Sit_To_Pol])] 
 }
 
+# We define a loop where we assign pollution values to all corresponding nodes as we did with Drying extent. The point here 
+## is that polluted/non-polluted (refered as impactes in the ms) is a "state" and therefore does not have intensity. 
+
 Poll_DataFrame_out <- list()
 Poll_filter_Pollution <- list()
 
-# 3. Pollutino assignation  ####
 for (diff_extent_value in 1:length(unique(diff_extent$Pollut_Ext))) {
 Poll_nodes_DaFr <- nodes_DaFr
-Poll_extent <- 1
+Poll_extent <- 1 # We define this value that later we modify in the function (with the term "distribution")
   
 Poll_diff_extent <- unique(diff_extent$Pollut_Ext)
-  
 Sites_to_Pol_Position <- which(unique(diff_extent$Pollut_Ext)==as.numeric(Poll_diff_extent[diff_extent_value]))
-
-#Spp_tolerance <- c(rep(0.5,50),rep(0.65,50),rep(0.75,50),rep(0.8,50))
 Spp_tolerance <- 1.01-(Orig_dispersal_pollution$IBMWP_score/10)
 
-# This function is very similar to the Dry but with less features (distribution is the same)
-#source("Function_to_Pollute.R")
-source(file = paste0(getwd(),"/Function_to_Pollute.R"))
+# This function is very similar to the Dry but with less features (distribution is the same). 
+# It creates a matrix of "sites x species" where each combination of species and sites is assessed. The polluted sites will 
+## have the "tolerance" values for each of the species while the non-impacted sites will feature the same value for each species. 
+
+# This matrix is featured as a "performance" value that defines how establishment probability of one species in one site is 
+## impacted by local properties of that site. If it is closer to 1, species establishment probability will only be modulated by 
+## dispersal probabilities while if is closer to 0, the probability of establishment defined by dispersal will decrease correspondingly. 
+
+# In this work, this probabilities are the corresponding Spp_tolerance values. Species that are very sensitive to pollution (Hihg IBMWP)
+## will present low "performance" values at impacted sites while very tolerant species (low IBMWP) will not be punished in that sites. 
+## Tolerant species will "take over" as pollution is gaining extention. 
+
+source(file = paste0(getwd(),"/functions/Function_to_Pollute.R"))
 filter_Pollution <- function_to_pollute(River_nodes =Poll_nodes_DaFr,
                                         Spp_tolerance =Spp_tolerance ,
                                         extent =Poll_extent,
@@ -154,15 +187,29 @@ Poll_DataFrame_out[[diff_extent_value]] <- Poll_nodes_DaFr
 Poll_filter_Pollution[[diff_extent_value]] <-list(filter_Pollution,Pollution) 
 }
 
-# Checking lengths
-length(Dry_DataFrame_out)
-length(Flow_DB_toSTcon)
-length(Poll_DataFrame_out)
+# Checking lengths to make sure everythign matches
+length(Dry_DataFrame_out);length(Flow_DB_toSTcon);length(Poll_DataFrame_out)
+
+#________________________###
+#________________________###
+# 2.3 Combination and Pollution + Drying ####
+#________________________###
+#________________________###
+
+# Finally, in this last step we combine the two variables that we have created so far. Drying (extent + intensity) and Pollution (impact)
+## These elements (contained in respective list objects) are combined correspondingly for each scenario in order to create
+## a final set of elements that will be used to: 
+# - Calculate STconmat for each dispersal scenario (done in a cluster to optimize speed)
+# - Run the coalescent models (considering STconmat values - Section 4 of this script)
+# - Ensure a copy of all the elements into "Diagnostic_plots"
 
 output_to_simulate <- list()
 plots_diagnosis <- list()
 for (diff_extent_value in 1:(length(Dry_DataFrame_out)*length(Poll_DataFrame_out))) {
-  
+
+# In the following lines we combine scenarios and make sure that each list elemnet is selected correspondingly and 
+## combined with its counterpart.
+## Here we combine Drying extent / Drying pattern (intensity) / Pollution extent
 Merge_diff_extent <- tidyr::crossing(Dry_Ext=unique(diff_extent$Dry_Ext),
                                      Pollut_Ext=unique(diff_extent$Pollut_Ext),
                                      Dry_Pattern_End=unique(diff_extent$Dry_Pattern_End))
@@ -180,19 +227,20 @@ Loca_Scen_DryPat <- which(duplicated(
 Scen_Position <-   c(which(Dry_diff_extent$Dry_Ext==unique(diff_extent$Dry_Ext)[Sites_to_Dry_Position]),
                      which(Dry_diff_extent$Dry_Pattern_End==unique(diff_extent$Dry_Pattern_End)[Sites_to_Pattern_Position]))[Loca_Scen_DryPat]
 
-cat(Scen_Position,Sites_to_Pollut_Position, "\n")
+# We merge all elements into a last big dataframe
+cat(Scen_Position,Sites_to_Pollut_Position, "\n") # Indicator of workflow and corresponding combination
 DataFrame_out_Scen <- left_join(Dry_DataFrame_out[[Scen_Position]],Poll_DataFrame_out[[Sites_to_Pollut_Position]], 
                                 by=c("Site_ID","x","y","weight")) %>% 
-mutate(Scenario=paste(as.numeric(Merge_diff_extent[diff_extent_value,1]),
-                      as.numeric(Merge_diff_extent[diff_extent_value,3]),
-                      as.numeric(Merge_diff_extent[diff_extent_value,2]),sep="_"),.before="Site_ID")  
+                      mutate(Scenario=paste(as.numeric(Merge_diff_extent[diff_extent_value,1]),
+                                            as.numeric(Merge_diff_extent[diff_extent_value,3]),
+                                            as.numeric(Merge_diff_extent[diff_extent_value,2]),sep="_"),.before="Site_ID")  
 
 # We set the new filter for the pollution 
 filter_Pollution <- Poll_filter_Pollution[[Sites_to_Pollut_Position]][[1]]
 Pollution <- Poll_filter_Pollution[[Sites_to_Pollut_Position]][[2]]
 
-# 4. Pollution + Drying  ####
-# Rescaling filters according to drying
+# Re-scaling filters according to drying. Dry+Pollution increase the filter effects. Under dryign conditions, pollution effect
+## will be strenghtened and therefore, sensitive species will be even more punished and tolerant species even more benefited. 
 drying_ranges <- unique(DataFrame_out_Scen$Permanence)[order(unique(DataFrame_out_Scen$Permanence))]
 Poll_Dry_Inter <- drying_ranges/max(drying_ranges)
 Poll_Dry_Inter <- ifelse(Poll_Dry_Inter==1,0.99,Poll_Dry_Inter)
@@ -203,19 +251,19 @@ for (dry_range in 1:length(drying_ranges)) {
   }else{
     Modif_Spp_tolerance <- Spp_tolerance^(drying_ranges[dry_range]/max(DataFrame_out_Scen$Permanence))
   }
-
-  Dry_and_Poll_Spp_tolerance <- scales::rescale(Modif_Spp_tolerance,to=c(min(Spp_tolerance),max(Spp_tolerance)))
-  filter_Pollution[,which(Pollution=="YES_Poll" & DataFrame_out_Scen$Permanence==drying_ranges[dry_range])] <- Dry_and_Poll_Spp_tolerance
+    Dry_and_Poll_Spp_tolerance <- scales::rescale(Modif_Spp_tolerance,to=c(min(Spp_tolerance),max(Spp_tolerance)))
+    filter_Pollution[,which(Pollution=="YES_Poll" & DataFrame_out_Scen$Permanence==drying_ranges[dry_range])] <- Dry_and_Poll_Spp_tolerance
 }
 filter_Pollution_test <- t(filter_Pollution)
 colnames(filter_Pollution_test) <- paste(seq(1:length(Spp_tolerance)),"Spe",sep="_")
 
-# Final diagnostic plots
+# Final steps and wrap-up 
+# We print and save plots for each scenario  
 Scenario_name <- paste(as.numeric(Merge_diff_extent[diff_extent_value,1]),
       as.numeric(Merge_diff_extent[diff_extent_value,3]),
       as.numeric(Merge_diff_extent[diff_extent_value,2]),sep="_")
 
-# We plot our beloved river colored according to the weight (order)/community size
+# Plot A - Plot with river order 
 Plot_A <- ggplot()+
   geom_segment(data=edges_DaFr, 
                aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord), 
@@ -226,8 +274,7 @@ Plot_A <- ggplot()+
   labs(title = paste("River structure", Scenario_name),y="",x="",fill="Comm. Size")+
   theme_void()
 
-
-# We plot our beloved river colored according to the weight (order)/community size
+# Plot B - Permanence indicate and alpha defined based on it 
 Alpha_plot <- (edges_DaFr %>% left_join(Dry_DataFrame_out[[Scen_Position]],by=c("from"="Site_ID")) %>% pull(Permanence)/
                (max(edges_DaFr %>% left_join(Dry_DataFrame_out[[Scen_Position]],by=c("from"="Site_ID")) %>% pull(Permanence))*2))+0.5
 
@@ -245,8 +292,8 @@ Plot_B <- edges_DaFr %>%
   labs(title = paste("Scenario",Scenario_name),y="",x="",fill="Permanence")+
   theme_void()
 
-# We plot our beloved river colored according to the weight (order)/community size
-Plot_C <- edges_DaFr %>% left_join(  Poll_DataFrame_out[[Sites_to_Pollut_Position]],by=c("from"="Site_ID")) %>% 
+# Plot C - Plot containing pollution
+Plot_C <- edges_DaFr %>% left_join(Poll_DataFrame_out[[Sites_to_Pollut_Position]],by=c("from"="Site_ID")) %>% 
   ggplot()+
   geom_curve(aes(x=X1_coord,y=Y1_coord, xend=X2_coord, yend=Y2_coord,colour=Pollution),
              arrow =arrow(length=unit(0.01,"cm"), ends="last"), 
@@ -259,7 +306,7 @@ Plot_C <- edges_DaFr %>% left_join(  Poll_DataFrame_out[[Sites_to_Pollut_Positio
   labs(title = paste("Scenario",Scenario_name),y="",x="",fill="Pollution")+
   theme_void()
 
-
+# Plot D - Site permanence and site pollutoin filter per each species 
 plot_D <- gridExtra::arrangeGrob(
   DataFrame_out_Scen %>% 
   bind_cols(as.data.frame(filter_Pollution_test)) %>% 
@@ -293,14 +340,15 @@ output_to_simulate[[diff_extent_value]] <- list(filter_Pollution,DataFrame_out_S
 }# Diff
 
 
-png(filename = "Scenario.png",width = 6000,height = 6500,units = "px",res =300)
+# We print these images 
+png(filename = "Figures/Scenario.png",width = 6000,height = 6500,units = "px",res =300)
 gridExtra::grid.arrange(
 plots_diagnosis[[1]][[1]],plots_diagnosis[[6]][[1]],
 plots_diagnosis[[12]][[1]],plots_diagnosis[[15]][[1]],
 plots_diagnosis[[19]][[1]],plots_diagnosis[[25]][[1]],nrow=6)
 dev.off()
 
-png(filename = "Scenario_SppFilt.png",width = 6000,height = 2000,units = "px",res =300)
+png(filename = "Figures/Scenario_SppFilt.png",width = 6000,height = 2000,units = "px",res =300)
 gridExtra::grid.arrange(
  plots_diagnosis[[1]][[2]],plots_diagnosis[[6]][[2]],
  plots_diagnosis[[12]][[2]],plots_diagnosis[[15]][[2]],
@@ -309,14 +357,22 @@ dev.off()
 
 save(plots_diagnosis,file = "RData_outputs/Diagnosis_Plots.RData")
 
-# 5. STconmat calculation  ####
+
+#________________________###
+#________________________###
+# 3. STconmat calculation  ####
+#________________________###
+#________________________###
+
+# We need to run STconmat in an external cluster in order to optimize the calculations (see Cluster_Code folder)
+
 # Remember that STcon is able to calculate several rivers at the same time! So you just need to have a list object with the 3 elements 
 # for each river scenario: 
 
-# Important to save the image to later plot and use the simulations 
+# Important to save the entire image to later plot and use the simulations 
 save.image(file="Cluster_Code/PreSTcon.RData")
 
-# We save the objects to send to the SLURM running cluster
+# We save the objects to send to the SLURM running cluster. We save scenarios by packs of 15
 Net_stru_RAW <- as.matrix(ocn_TEST$FD$W)
 
 Flow_DB_toSTcon_Sc <- list()
@@ -339,85 +395,10 @@ save(Scenario,Flow_DB_toSTcon,g,Net_stru_RAW,nodes_DaFr,
      file=paste("Cluster_Code/",paste("Sc_",Beg,"_",End, sep = ""),"/SLURM_PreSTcon.RData",sep=""))
 }
 
-library(igraph)
-# Intermittence database
-Flow_DB_toSTcon[[length(Flow_DB_toSTcon)+1]] <- ifelse(Flow_DB_toSTcon[[1]]==0,1,Flow_DB_toSTcon[[1]])
-Int_dataset <- Flow_DB_toSTcon
-# Sites coordinates
-Sit_coordinates <- nodes_DaFr[,c(1:4)]
-Sit_coordinates <- replicate(length(Int_dataset), Sit_coordinates, simplify = FALSE)
-# Network structure
-Net_stru <- Net_stru_RAW
-Net_stru <- replicate(length(Int_dataset), Net_stru, simplify = FALSE)
-# Distance matrix
-Dist_matr <- distances(g)#((as.matrix(dist(nodes_DaFr[,3:4])))*as.matrix(ocn_TEST$FD$W))
-Dist_matr <- replicate(length(Int_dataset), Dist_matr, simplify = FALSE)
-
-#some library to be needed
-library(shp2graph)
-library(doParallel)
-library(ggnetwork)
-source("https://raw.github.com/Cunillera-Montcusi/Quantifyinig-SpaTem-connectivity/main/SpaTemp_function.R")
-Riv_Drift <- spat_temp_index(Inermitence_dataset = Int_dataset,
-                           Sites_coordinates=Sit_coordinates,
-                           Network_stru =Net_stru,
-                           direction="directed", sense = "out",
-                           weighting=T,dist_matrices = Dist_matr,
-                           weighting_links =FALSE,link_weights = NULL,
-                           legacy_effect =1, legacy_lenght = 1,
-                           value_S_LINK=0.1,
-                           value_T_LINK=0.1,
-                           value_NO_S_link=1,
-                           value_NO_T_link=1,
-                           Network_variables=F,print.plots=F,print.directory="Figure/")
-save(list = "Riv_Drift",file = "Riv_Drift_STcon.RData")
-
-Riv_Swim <- spat_temp_index(Inermitence_dataset = Int_dataset,
-                             Sites_coordinates=Sit_coordinates,
-                             Network_stru =Net_stru,
-                             direction="directed", sense = "all",
-                             weighting=T,dist_matrices = Dist_matr,
-                             weighting_links =FALSE,link_weights = NULL,
-                             legacy_effect =1, legacy_lenght = 1,
-                             value_S_LINK=0.1,
-                             value_T_LINK=0.1,
-                             value_NO_S_link=1,
-                             value_NO_T_link=1,
-                             Network_variables=F,print.plots=F,print.directory="Figure/")
-save(list = "Riv_Swim",file = "Riv_Swim_STcon.RData")
-
-
-
-# Network structure
-Distances <- as.matrix(dist(nodes_DaFr[,3:4]))
-summary(as.vector(Distances))
-Net_stru <- Net_stru_RAW
-Net_stru <- ifelse(Distances<5,1,0)
-diag(Net_stru) <- 0
-Net_stru <- replicate(length(Int_dataset), Net_stru, simplify = FALSE)
-# Distance matrix
-Dist_matr <- ((as.matrix(dist(nodes_DaFr[,3:4])))*Net_stru[[1]])
-Dist_matr <- replicate(length(Int_dataset), Dist_matr, simplify = FALSE)
-
-Riv_AerAct <- spat_temp_index(Inermitence_dataset = Int_dataset,
-                              Sites_coordinates=Sit_coordinates,
-                              Network_stru =Net_stru,
-                              direction="undirected", sense = "all",
-                              weighting=T,dist_matrices = Dist_matr,
-                              weighting_links =FALSE,link_weights = NULL,
-                              legacy_effect =1, legacy_lenght = 1,
-                              value_S_LINK=0.1,
-                              value_T_LINK=0.1,
-                              value_NO_S_link=1,
-                              value_NO_T_link=1,
-                              Network_variables=F,print.plots=F,print.directory="Figure/")
-
-save(list = "Riv_AerAct",file = "Riv_AerAct_STcon.RData")
-
-
+# Run_STcon.R scripts contain the following lines of code to run the 3 dispersal networks (swimers, drifters and flyers) 
 
 # After running in the server we reload the data and prepare it for the model 
-# Some fast checkings
+# Some fast checking
 length(output_to_simulate)
 
 Flow_DB_toSTcon_Sc <- list()
@@ -456,54 +437,58 @@ Riv_Drift_Tot <- Riv_Drift_Tot[1:length(output_to_simulate)]
 Riv_Swim_Tot <- Riv_Swim_Tot[1:length(output_to_simulate)]
 Riv_AerAct_Tot <- Riv_AerAct_Tot[1:length(output_to_simulate)]
 
-
+# We substract STconmat to transform its values as a distance between sites 
 Scen_Drift_STconmat <- list()
 for (scen in 1:(length(Riv_Drift_Tot))) {
-  Drift_STconmat <-Riv_Drift_Tot[[scen]]#/Riv_Drift$STconmat[[length(Int_dataset)]]
+  Drift_STconmat <-Riv_Drift_Tot[[scen]]
   #to construct a diagonal matrix
   diag(Drift_STconmat) <- 1
-  # if Riv_STconmat is 0, write 10000, otherwise write Riv_STconmat
+  # if Riv_STconmat is 0, write 100, otherwise write Riv_STconmat
   Scen_Drift_STconmat[[scen]] <-ifelse(Drift_STconmat==0,100,Drift_STconmat)
-  #Scen_Drift_STconmat[[scen]] <-ifelse(is.nan(Drift_STconmat)==T,100,Drift_STconmat)
 }
 
 Scen_Swim_STconmat <- list()
 for (scen in 1:(length(Riv_Swim_Tot))) {
-  Swim_STconmat <-Riv_Swim_Tot[[scen]]#/Riv_Swim$STconmat[[length(Int_dataset)]]
+  Swim_STconmat <-Riv_Swim_Tot[[scen]]
   #to construct a diagonal matrix
   diag(Swim_STconmat) <- 1
-  # if Riv_STconmat is 0 or NaN, write 10000, otherwise write Riv_STconmat
+  # if Riv_STconmat is 0 or NaN, write 100, otherwise write Riv_STconmat
   Scen_Swim_STconmat[[scen]] <-ifelse(Swim_STconmat==0,100,Swim_STconmat)
-  #Scen_Swim_STconmat[[scen]] <-ifelse(is.nan(Swim_STconmat)==T,100,Swim_STconmat)
 }
 
 Scen_AAct_STconmat <- list()
 for (scen in 1:(length(Riv_AerAct_Tot))) {
-  AAct_STconmat <-Riv_AerAct_Tot[[scen]]#/Riv_Swim$STconmat[[length(Int_dataset)]]
+  AAct_STconmat <-Riv_AerAct_Tot[[scen]]
   #to construct a diagonal matrix
   diag(AAct_STconmat) <- 1
-  # if Riv_STconmat is 0 or NaN, write 10000, otherwise write Riv_STconmat
+  # if Riv_STconmat is 0 or NaN, write 100, otherwise write Riv_STconmat
   Scen_AAct_STconmat[[scen]] <-ifelse(AAct_STconmat==0,100,AAct_STconmat)
-  #Scen_Swim_STconmat[[scen]] <-ifelse(is.nan(Swim_STconmat)==T,100,Swim_STconmat)
 }
 
-
+# We check values distribution
 summary(as.vector(Scen_AAct_STconmat[[3]]))
 summary(as.vector(Scen_Swim_STconmat[[3]]))
 summary(as.vector(Scen_Drift_STconmat[[3]]))
 
-# 6. Coaslescent runs ####
+#________________________###
+#________________________###
+# 4. STconmat calculation  ####
+#________________________###
+#________________________###
+
+# We charge the function to run coalescent models
 source("H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R")
 
 ###__________________________________
 ### WE BEGUN TO built all the data that we need to run the simulation
 ## Distance matrix 
-# It is equivalent to the Riv_STconmat 
+# It is equivalent to the Riv_STconmat (uploaded on step 3) 
 
 ## Community size
-# Area total is the weight. But we must convert it to not take too long computation times 
-# We define parameters of Community area to transform weight to community size (J)
-Max_Area<-(Years_Of_Drying*12)#*max(nodes_DaFr$weight)
+# Permanence time is deifned here as community space. THe more intermittent a site is the less carrying capicity it will have. 
+## We must convert it to not take too long computation times. 
+# We define parameters of Community area to transform permanence to community size (J)
+Max_Area<-(Years_Of_Drying*12)
 Jmin <- 50 # What will be the minimum size at which we will consider "0" 
 J.max<-200+Jmin # What is the maximum J that we want to assign to a community
 b.ef<-(0.8) # The coefficient of change. If 1 we do a direct proportion between the two but minimimum becomes "1" (only 1 indiv)
@@ -521,7 +506,7 @@ Meta_t0 <- matrix(nrow = length(pool_200), ncol =nrow(nodes_DaFr), 1) #Previous 
 # other dispersal abilities. They push "overall connectivity" towards higher or lower connections.
 #summary(as.vector(Scen_Swim_STconmat[[pollut]])[-which(as.vector(Scen_Swim_STconmat[[pollut]])==100)]) 
 
-dispersal_test <- c(0.15) # We set the dispersal abilities that we want
+dispersal_test <- c(0.15) # We set the dispersal abilities what we want
 
 Disp_Str <- Orig_dispersal_pollution%>% 
   mutate(Disp_Strateg=case_when(
@@ -540,7 +525,7 @@ Diff_scenarios <- foreach(dispersal=1:length(dispersal_test), .combine=rbind)%:%
                   foreach(pollut=1:length(output_to_simulate), .combine=rbind)%dopar%{ # Parallellize for pollution
 
 # J creation
-FW_area <- output_to_simulate[[pollut]][[2]]$Permanence#*output_to_simulate[[pollut]][[2]]$weight
+FW_area <- output_to_simulate[[pollut]][[2]]$Permanence
 J.freshwater<-ceiling((-Jmin+(J.max/(Max_Area^b.ef))*FW_area^b.ef))
 plot(FW_area,J.freshwater)
 J.freshwater <- ifelse(J.freshwater<0,20,J.freshwater)
