@@ -77,7 +77,7 @@ Data_To_Plot %>%
 
 # Figure 3 ####
 
-png(filename = "Figures/Figure_3.png",width = 2300,height = 2500,units = "px",res =300)
+png(filename = "Figures/Figure_3.png",width = 1800,height = 1600,units = "px",res =300)
 Data_To_Plot %>% 
   filter(Pollut_ext%in%c(0.01,0.5,0.75), 
          Dry_ext%in%c(0.25,0.5,0.75)) %>% 
@@ -225,13 +225,13 @@ ggplot()+
   geom_smooth(data=Poll_plot, aes(x=Sc_STcon,y=IBMWP,colour=as.factor(1-Dry_patt),group=Dry_patt),
               method="lm",se=F,alpha=0.1,linewidth=1,linetype=1)+
   scale_colour_brewer(palette = "Reds")+  
-  labs(colour="Polluted Dry. Int.")+
+  labs(colour="Impacted Dry. Int.")+
   ggnewscale::new_scale_colour()+
   geom_smooth(data=UnPoll_plot, aes(x=Sc_STcon,y=IBMWP,colour=as.factor(1-Dry_patt),group=Dry_patt),
               method="lm",se=F,alpha=0.1,linewidth=1,linetype=1)+
   scale_colour_brewer(palette = "Greens")+  
   
-  labs(color="Unpolluted Dry. Int.",fill="Impact",
+  labs(color="Unimpacted Dry. Int.",fill="Impact",
        x="Dispersal resistance",y="IBMWP")+
   facet_wrap(Pollut_ext~Dry_ext, ncol=3,strip.position = "right",axis.labels = "all",axes = "all")+
   theme(legend.position = "bottom")+
@@ -245,18 +245,18 @@ dev.off()
 Ref_Performance <- Data_To_Plot %>% 
   group_by(Dry_ext, Dry_patt, Pollut_ext) %>% 
   summarise(Ref_IBMWP=mean(IBMWP)) %>%  
-  filter(Dry_ext==0.01,
+  filter(#Dry_ext==0.01,
          Dry_patt==0.9,
          Pollut_ext==0.01) %>% # We need to select this to obtain the set reference in a pristine environment
   ungroup() %>% 
   select(Dry_ext,Ref_IBMWP) 
 
-png(filename = "Figures/Figure_4.png",width = 3000,height = 800,units = "px",res =300)
+png(filename = "Figures/Figure_4_Supp.png",width = 3000,height = 1000,units = "px",res =300)
 Data_To_Plot %>% 
   group_by(Dry_ext, Dry_patt, Pollut_ext,Pollution) %>% 
   summarise(M_IBMWP=mean(IBMWP)) %>%
-  mutate(Ref_IBMWP=as.numeric(Ref_Performance[,2])) %>%
-  #left_join(Ref_Performance, by="Dry_ext") %>%
+  #mutate(Ref_IBMWP=as.numeric(Ref_Performance[,2])) %>%
+  left_join(Ref_Performance, by="Dry_ext") %>%
   mutate(Diff_Ref=Ref_IBMWP-M_IBMWP) %>% 
   select(-M_IBMWP) %>% 
   pivot_wider(names_from = Pollution,values_from = c(Diff_Ref)) %>%
@@ -264,7 +264,7 @@ Data_To_Plot %>%
   mutate(Pollut_ext=Pollut_ext*100) %>% 
   #mutate(Ref_Performance=as.numeric(Ref_Performance[,2])) %>% 
   mutate(Perf_In_Perc=(Performance*1)) %>% 
-  filter(Dry_ext%in%c(0.1,0.25,0.5,0.75,0.9)) %>% 
+  filter(Dry_ext%in%c(0.01,0.1,0.25,0.5,0.75,0.9)) %>% 
   mutate(Dry_ext=Dry_ext*100) %>% 
   mutate(Dry_ext=paste("Dry ext=", Dry_ext,sep=" ")) %>% 
   ggplot()+
@@ -276,10 +276,10 @@ Data_To_Plot %>%
   scale_y_continuous(limits = c(-5,105),labels =c(0,25,50,75,100) )+
   facet_wrap(Dry_ext~., nrow = 1,strip.position = "top",scales = "fixed")+
   theme_classic()+
-  theme(legend.position = "right",
+  theme(legend.position = "bottom",
         legend.key = element_rect(fill = "transparent", colour = NA),
         panel.background = element_rect(colour="orange"),
-        strip.text = element_text(colour="darkorange"),
+        strip.text = element_text(colour="black"),
         strip.background =  element_rect(fill=alpha("orange",0.2)),
         axis.text.x=element_text(colour="darkred"),
         axis.title.x=element_text(colour="darkred"))
@@ -370,7 +370,7 @@ Data_To_Plot %>%
   theme(legend.position = "right",
         legend.key = element_rect(fill = "transparent", colour = NA),
         panel.background = element_rect(colour="orange"),
-        strip.text = element_text(colour="darkorange"),
+        strip.text = element_text(colour="black"),
         strip.background =  element_rect(fill=alpha("orange",0.2)),
         axis.text.x=element_text(colour="darkred"),
         axis.title.x=element_text(colour="darkred"))
@@ -441,9 +441,9 @@ Data_To_Plot %>%
   geom_smooth(aes(group=Dry_Int),method="loess",se=F)+
   geom_point(size=5,alpha=0.6)+
   scale_color_viridis(option="E",discrete = T)+
-  geom_vline(data = DRYvER_inf, aes(xintercept =Dry_ext),linewidth=2,alpha=0.6,
-             colour=c("#996633","#336600","#009999","#993333","#660066","#666699"))+
-  labs(y="Intercept (Performance under pristine conditions)",
+  #geom_vline(data = DRYvER_inf, aes(xintercept =Dry_ext),linewidth=2,alpha=0.6,
+  #           colour=c("#996633","#336600","#009999","#993333","#660066","#666699"))+
+  labs(y="Intercept (Performance under 10% of anth. impact ext.)",
        x="Drying extent",colour="Drying intensity")+
   theme_classic()
 dev.off()
