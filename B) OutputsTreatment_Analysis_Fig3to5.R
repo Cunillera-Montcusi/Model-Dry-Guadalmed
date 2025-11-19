@@ -111,7 +111,7 @@ Data_To_Plot %>%
 dev.off()
 
 
-png(filename = "Figures/Figure_3_Intercepts.png",width = 4600,height = 1200,units = "px",res =300)
+png(filename = "Figures/Figure_3_Intercepts.png",width = 4600,height = 3200,units = "px",res =300)
 Data_To_Plot %>% 
   mutate(Dry_Inten=1-Dry_patt) %>% 
   group_by(Pollut_ext,Dry_ext,Dry_Inten) %>% 
@@ -124,16 +124,18 @@ Data_To_Plot %>%
   mutate(Sign=ifelse(pvalue<0.1,"Sign","NO.sign")) %>% 
   #filter(Sign=="Sign") %>% 
   pivot_longer(5) %>% 
-  mutate(Dry_ext=paste("Dry ext=", Dry_ext,sep=" ")) %>% 
-  ggplot(aes(x=Dry_Inten,y=Pollut_ext*100,
+  mutate(Dry_ext=paste("Dry ext=", Dry_ext,sep=" ")) %>%
+  mutate(Pollut_ext=paste("H.Imp ext=", (Pollut_ext*100),sep=" ")) %>% 
+  ggplot(aes(x=Dry_Inten,y=abs(value),
              fill=as.factor(Dry_Inten)))+
-  geom_point(aes(size=abs(value)),shape=21,stroke=1)+
+  geom_bar(stat="identity")+
+  #geom_point(aes(size=abs(value)),shape=21,stroke=1)+
   scale_fill_viridis(option="E",discrete = T)+
   scale_alpha_manual(values=c(0.1,1))+
-  facet_grid(.~as.factor(Dry_ext))+
+  facet_grid(Pollut_ext~as.factor(Dry_ext))+
   labs(fill="Dry Intensity",
        x="Drying Intensity (%)",
-       y="Anthropogenic impact extent (%)")+
+       y="Intercept")+
   guides(size="none",alpha="none")+
   theme_classic()+
   theme(legend.position = "right",
@@ -146,7 +148,7 @@ Data_To_Plot %>%
 dev.off()
 
 
-png(filename = "Figures/Figure_3_Slopes.png",width = 4600,height = 1200,units = "px",res =300)
+png(filename = "Figures/Figure_3_Slopes.png",width = 4600,height = 3200,units = "px",res =300)
 Data_To_Plot %>% 
   mutate(Dry_Inten=1-Dry_patt) %>% 
   group_by(Pollut_ext,Dry_ext,Dry_Inten) %>% 
@@ -160,20 +162,22 @@ Data_To_Plot %>%
   #filter(Sign=="Sign") %>% 
   pivot_longer(6) %>%
   mutate(Dry_ext=paste("Dry ext=", Dry_ext,sep=" ")) %>% 
-  ggplot(aes(x=Dry_Inten,y=Pollut_ext*100,
+  mutate(Pollut_ext=paste("H.Imp ext=", (Pollut_ext*100),sep=" ")) %>% 
+  ggplot(aes(x=Dry_Inten,y=abs(value),
              fill=value,
              colour=as.factor(Dry_Inten)))+
-  geom_point(aes(size=abs(value)),shape=21,stroke=1.2)+
+  geom_bar(stat="identity")+
+  #geom_point(aes(size=abs(value)),shape=21,stroke=1.2)+
   scale_color_viridis(option="E",discrete = T)+
   scale_fill_gradient2(low =RColorBrewer::brewer.pal(3,"RdBu")[1],
                        mid = RColorBrewer::brewer.pal(3,"RdBu")[2],
                        high=RColorBrewer::brewer.pal(3,"RdBu")[3],
                        midpoint = 0)+
   scale_alpha_manual(values=c(0.1,1))+
-  facet_grid(.~as.factor(Dry_ext))+
+  facet_grid(Pollut_ext~as.factor(Dry_ext))+
   labs(colour="Dry Intensity",fill="Slope",
        x="Drying Intensity (%)",
-       y="Anthropogenic impact extent (%)")+
+       y="Slope")+
   guides(size="none",alpha="none")+
   theme_classic()+
   theme(legend.position = "right",
@@ -231,8 +235,8 @@ ggplot()+
               method="lm",se=F,alpha=0.1,linewidth=1,linetype=1)+
   scale_colour_brewer(palette = "Greens")+  
   
-  labs(color="Unimpacted Dry. Int.",fill="Impact",
-       x="Dispersal resistance",y="IBMWP")+
+  labs(color="Non-impacted Dry. Int.",fill="Impact",
+       x="Dispersal resistance",y="BI")+
   facet_wrap(Pollut_ext~Dry_ext, ncol=3,strip.position = "right",axis.labels = "all",axes = "all")+
   theme(legend.position = "bottom")+
   theme_classic()+
@@ -245,18 +249,18 @@ dev.off()
 Ref_Performance <- Data_To_Plot %>% 
   group_by(Dry_ext, Dry_patt, Pollut_ext) %>% 
   summarise(Ref_IBMWP=mean(IBMWP)) %>%  
-  filter(#Dry_ext==0.01,
+  filter(Dry_ext==0.01,
          Dry_patt==0.9,
          Pollut_ext==0.01) %>% # We need to select this to obtain the set reference in a pristine environment
   ungroup() %>% 
   select(Dry_ext,Ref_IBMWP) 
 
-png(filename = "Figures/Figure_4_Supp.png",width = 3000,height = 1000,units = "px",res =300)
+png(filename = "Figures/Figure_4_supp.png",width = 3000,height = 1000,units = "px",res =300)
 Data_To_Plot %>% 
   group_by(Dry_ext, Dry_patt, Pollut_ext,Pollution) %>% 
   summarise(M_IBMWP=mean(IBMWP)) %>%
-  #mutate(Ref_IBMWP=as.numeric(Ref_Performance[,2])) %>%
-  left_join(Ref_Performance, by="Dry_ext") %>%
+  mutate(Ref_IBMWP=as.numeric(Ref_Performance[,2])) %>%
+  #left_join(Ref_Performance, by="Dry_ext") %>%
   mutate(Diff_Ref=Ref_IBMWP-M_IBMWP) %>% 
   select(-M_IBMWP) %>% 
   pivot_wider(names_from = Pollution,values_from = c(Diff_Ref)) %>%
@@ -272,7 +276,7 @@ Data_To_Plot %>%
   geom_jitter(aes(x=Pollut_ext,y=Perf_In_Perc,colour=as.factor(1-Dry_patt)), width = 0.02,height = 0,size=2,alpha=0.6)+
   geom_smooth(aes(x=Pollut_ext,y=Perf_In_Perc,colour=as.factor(1-Dry_patt),group=Dry_patt),se=F,method="lm")+
   scale_color_viridis(option="E",discrete = T)+
-  labs(colour="Drying intensity", y="Performance",x="Anthropogenic impact extent (%)")+
+  labs(colour="Drying intensity", y="Performance",x="Human impact extent (%)")+
   scale_y_continuous(limits = c(-5,105),labels =c(0,25,50,75,100) )+
   facet_wrap(Dry_ext~., nrow = 1,strip.position = "top",scales = "fixed")+
   theme_classic()+
@@ -318,7 +322,7 @@ Data_To_Plot %>%
   geom_smooth(aes(x=Pollut_ext,y=Perf_In_Perc,colour=as.factor(Dry_ext),group=Dry_ext),se=F,method="lm")+
   scale_color_brewer(palette = "YlOrBr",direction = -1)+
   #scale_color_viridis(option="E",discrete = T)+
-  labs(colour="Drying Extent", y="Performance",x="Anthropogenic impact extent (%)")+
+  labs(colour="Drying Extent", y="Performance",x="Human impact extent (%)")+
   scale_y_continuous(limits = c(-5,105),labels =c(0,25,50,75,100) )+
   facet_wrap(Dry_patt~., nrow = 1,strip.position = "top",scales = "fixed")+
   theme_classic()+
@@ -363,7 +367,7 @@ Data_To_Plot %>%
   geom_jitter(aes(x=Pollut_ext,y=Perf_In_Perc,colour=as.factor(1-Dry_patt)), width = 0.02,height = 0,size=2,alpha=0.6)+
   geom_smooth(aes(x=Pollut_ext,y=Perf_In_Perc,colour=as.factor(1-Dry_patt),group=Dry_patt),se=F,method="lm")+
   scale_color_viridis(option="E",discrete = T)+
-  labs(colour="Drying intensity", y="Performance",x="Anthropogenic impact extent (%)")+
+  labs(colour="Drying intensity", y="Performance",x="Human impact extent (%)")+
   scale_y_continuous(limits = c(-5,105),labels =c(0,25,50,75,100) )+
   facet_wrap(Dry_ext~., nrow = 3,strip.position = "top",scales = "fixed")+
   theme_classic()+
@@ -429,28 +433,64 @@ Data_To_Plot %>%
   mutate(Performance=(1-(Unpolluted/Polluted))*100) %>%
   mutate(Pollut_ext=Pollut_ext*100) %>% 
   group_by(Dry_ext,Dry_patt) %>% 
-  do(mod = lm(Performance ~ Pollut_ext, data = .)) %>%
-  mutate(
-    Intercept = summary(mod)$coeff[1],
-    Slope = summary(mod)$coeff[2],
-    pvalue=summary(mod)$coeff[8]) %>%
-  mutate(Sign=ifelse(pvalue<0.1,"Sign","NO.sign")) %>% 
+  # do(mod = lm(Performance ~ Pollut_ext, data = .)) %>%
+  # mutate(
+  #   Intercept = summary(mod)$coeff[1],
+  #   Slope = summary(mod)$coeff[2],
+  #   pvalue=summary(mod)$coeff[8]) %>%
+  # mutate(Sign=ifelse(pvalue<0.1,"Sign","NO.sign")) %>% 
   mutate(Dry_Int=1-Dry_patt) %>% 
   mutate(Dry_ext=Dry_ext*100) %>% 
   ggplot(aes(x=Dry_ext,y=Intercept,colour=as.factor(Dry_Int)))+
   geom_smooth(aes(group=Dry_Int),method="loess",se=F)+
   geom_point(size=5,alpha=0.6)+
   scale_color_viridis(option="E",discrete = T)+
+  scale_y_continuous(limits=c(0,100))+
   #geom_vline(data = DRYvER_inf, aes(xintercept =Dry_ext),linewidth=2,alpha=0.6,
   #           colour=c("#996633","#336600","#009999","#993333","#660066","#666699"))+
-  labs(y="Intercept (Performance under 10% of anth. impact ext.)",
+  labs(y="Performance at 10 % of Human impact extent",
        x="Drying extent",colour="Drying intensity")+
   theme_classic()
 dev.off()
 
 
 
-
+# Figure 5 all ####
+png(filename = "Figures/Figure_5_All.png",width = 5000,height = 1500,units = "px",res =300)
+Data_To_Plot %>% 
+  filter(Pollut_ext!=0.01) %>% 
+  group_by(Dry_ext, Dry_patt, Pollut_ext,Pollution) %>% 
+  summarise(M_IBMWP=mean(IBMWP)) %>%
+  mutate(Ref_IBMWP=as.numeric(Ref_Performance[,2])) %>%
+  mutate(Diff_Ref=Ref_IBMWP-M_IBMWP) %>% 
+  select(-M_IBMWP) %>% 
+  pivot_wider(names_from = Pollution,values_from = c(Diff_Ref)) %>%
+  mutate(Performance=(1-(Unpolluted/Polluted))*100) %>%
+  mutate(Pollut_ext=Pollut_ext*100) %>% 
+  group_by(Dry_ext,Dry_patt,Pollut_ext) %>% 
+  # do(mod = lm(Performance ~ Pollut_ext, data = .)) %>%
+  # mutate(
+  #   Intercept = summary(mod)$coeff[1],
+  #   Slope = summary(mod)$coeff[2],
+  #   pvalue=summary(mod)$coeff[8]) %>%
+  # mutate(Sign=ifelse(pvalue<0.1,"Sign","NO.sign")) %>% 
+  mutate(Dry_Int=1-Dry_patt) %>% 
+  mutate(Dry_ext=Dry_ext*100) %>% 
+  mutate(Pollut_ext=paste("Hum.Imp.Ext.=",Pollut_ext,"%")) %>% 
+  ggplot(aes(x=Dry_ext,y=Performance,colour=as.factor(Dry_Int)))+
+  geom_smooth(aes(group=Dry_Int),method="loess",se=F)+
+  geom_point(size=5,alpha=0.6)+
+  scale_color_viridis(option="E",discrete = T)+
+  scale_y_continuous(limits=c(0,100))+
+  #geom_vline(data = DRYvER_inf, aes(xintercept =Dry_ext),linewidth=2,alpha=0.6,
+  #           colour=c("#996633","#336600","#009999","#993333","#660066","#666699"))+
+  labs(y="Performance under determined % of Human impact extent",
+       x="Drying extent",colour="Drying intensity")+
+  facet_grid(.~Pollut_ext)+
+  theme_classic()+
+  theme( strip.text = element_text(colour="black"),
+         strip.background =  element_rect(fill=alpha("darkred",0.2)))
+dev.off()
 
 
 
