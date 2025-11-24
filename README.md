@@ -1,9 +1,7 @@
-# Model-Dry-Guadalmed
-Scripts and data corresponding to the Dry-Guadalmed project and focused on the first objective of creating a null interface to assess drought and pollution interacton on intermittent river networks. 
 Title: 
 # Simulating drying and human impacts on river networks to evaluate biological quality indices performance through the lens of metacommunity theory
 
-Authors and affiliations:
+Authors:
 Zeynep Ersoy1,2,3,4*,‡, David Cunillera-Montcusí5,6*,‡, Martí Piñero-Fernández3,4, Miguel Cañedo-Argüelles7, María Mar Sánchez-Montoya8, Núria Bonada3,4, Núria Cid9
 
 <sub>1 Área de Biodiversidad y Conservación, Departamento de Biología y Geología, Física y Química Inorgánica, Universidad Rey Juan Carlos (URJC), Móstoles, Madrid, Spain</sub>
@@ -34,5 +32,6 @@ We used a coalescent metacommunity model to simulate the exchange of individuals
 For each simulation, we obtained local richness and the biological index value. Then, we calculated biological index performance, which we defined as the capacity to distinguish between impacted and non-impacted sites. Finally, we tested our approach in six non-impacted European drying river networks, from which drying information was available. 
 Our results showed that low spatiotemporal connectivity consistently led to decreased local richness and low scores of the biological index (reflecting poor biological quality). As drying extent and intensity increased, drying-induced fragmentation significantly reduced the biological index performance. For example, with a 50% increase in drying extent, index performance fell over 70% and at high drying levels, this performance dropped more than 90%. This decay followed a convex pattern, with a marked drop in performance as soon as drying appeared in the catchment and its relaxation at higher drying extents.
 Synthesis and applications: We show how simulations can be used to incorporate network fragmentation and metacommunity dynamics into the design and validation of biomonitoring tools, thereby increasing their efficiency.
+
 
 
