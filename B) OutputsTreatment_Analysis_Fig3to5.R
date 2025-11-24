@@ -255,7 +255,7 @@ Ref_Performance <- Data_To_Plot %>%
   ungroup() %>% 
   select(Dry_ext,Ref_IBMWP) 
 
-png(filename = "Figures/Figure_4_supp.png",width = 3000,height = 1000,units = "px",res =300)
+png(filename = "Figures/Figure_4.png",width = 3000,height = 1000,units = "px",res =300)
 Data_To_Plot %>% 
   group_by(Dry_ext, Dry_patt, Pollut_ext,Pollution) %>% 
   summarise(M_IBMWP=mean(IBMWP)) %>%
@@ -276,7 +276,7 @@ Data_To_Plot %>%
   geom_jitter(aes(x=Pollut_ext,y=Perf_In_Perc,colour=as.factor(1-Dry_patt)), width = 0.02,height = 0,size=2,alpha=0.6)+
   geom_smooth(aes(x=Pollut_ext,y=Perf_In_Perc,colour=as.factor(1-Dry_patt),group=Dry_patt),se=F,method="lm")+
   scale_color_viridis(option="E",discrete = T)+
-  labs(colour="Drying intensity", y="Performance",x="Human impact extent (%)")+
+  labs(colour="Drying intensity", y="Performance (%)",x="Human impact extent (%)")+
   scale_y_continuous(limits = c(-5,105),labels =c(0,25,50,75,100) )+
   facet_wrap(Dry_ext~., nrow = 1,strip.position = "top",scales = "fixed")+
   theme_classic()+
@@ -441,15 +441,15 @@ Data_To_Plot %>%
   # mutate(Sign=ifelse(pvalue<0.1,"Sign","NO.sign")) %>% 
   mutate(Dry_Int=1-Dry_patt) %>% 
   mutate(Dry_ext=Dry_ext*100) %>% 
-  ggplot(aes(x=Dry_ext,y=Intercept,colour=as.factor(Dry_Int)))+
+  ggplot(aes(x=Dry_ext,y=Performance,colour=as.factor(Dry_Int)))+
   geom_smooth(aes(group=Dry_Int),method="loess",se=F)+
   geom_point(size=5,alpha=0.6)+
   scale_color_viridis(option="E",discrete = T)+
   scale_y_continuous(limits=c(0,100))+
   #geom_vline(data = DRYvER_inf, aes(xintercept =Dry_ext),linewidth=2,alpha=0.6,
   #           colour=c("#996633","#336600","#009999","#993333","#660066","#666699"))+
-  labs(y="Performance at 10 % of Human impact extent",
-       x="Drying extent",colour="Drying intensity")+
+  labs(y="Performance (%) at 10 % of Human impact extent",
+       x="Drying extent (%)",colour="Drying intensity")+
   theme_classic()
 dev.off()
 
