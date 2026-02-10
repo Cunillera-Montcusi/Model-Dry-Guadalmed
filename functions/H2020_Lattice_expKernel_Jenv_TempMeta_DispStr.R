@@ -87,11 +87,17 @@ H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom<-function(Meta.pool, m.pool,
   
   # Function to update: M.migra from Graph to a function based in distance matrix
   M.migra_Disp_Strat <- list()
-  for (Disp_Strateg in 1:length(unique(Disp_Str))) {
-  M.migra_Disp_Strat[[Disp_Strateg]]<-H2020_migration.matrix.kernel.all(M.dist=M.dist[[Disp_Strateg]], m.pool=m.pool, D50=D50, m.max=m.max,             # Funciton defined above. It estimates Migration matrix
-                                      id.fixed=id.fixed, D50.fixed=D50.fixed, m.max.fixed=m.max.fixed) 
+  for (Disp_Matrices_to_Prob in 1:length(unique(Disp_Strat))) {
+  M.migra_Disp_Strat[[Disp_Matrices_to_Prob]]<-H2020_migration.matrix.kernel.all(
+                    # Funciton defined above. It estimates Migration matrix
+                    M.distance=M.dist[[Disp_Matrices_to_Prob]], m.pool=m.pool, 
+                    D50=D50, #[[1]][Disp_Matrices_to_Prob], 
+                    m.max=m.max,   
+                    id.fixed=id.fixed, D50.fixed=D50.fixed, m.max.fixed=m.max.fixed) 
   }
   
+  # Initial arrivals:
+  # We add one individual randomly selected. Initial individual of the community. 
   for(i in 1:ncol(filter.env)){
   Meta<-cbind(Meta, rmultinom(1,1,Meta.pool))
   }
@@ -101,51 +107,68 @@ H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom<-function(Meta.pool, m.pool,
   if(length(col_NO_J)==0){col_NO_J <- -(1:length(Js))}
   
   Meta[,col_NO_J] <- 0
+  Meta_sml <- Meta[,-col_NO_J]
   
-  Meta_sml_ind_list <- list()
   for (fraction in 1:2) {# Two fractions of the community, one shared among dispersers and the other just for each group 
-  if(fraction==1){Js_fraction <- Js/2;dispersal_loops <- 1}
-  if(fraction==2){Js_fraction <- ceiling((Js/2)/length(unique(Disp_Str)));dispersal_loops <- length(unique(Disp_Str))}
+  if(fraction==1){Js_fraction <- (Js/8);dispersal_loops <- 1; Meta_sml_shared_ALL <- Meta_sml}
+  if(fraction==2){Js_fraction <- ceiling(((Js/8)*(length(unique(Disp_Strat))*2))/length(unique(Disp_Strat)));dispersal_loops <- length(M.migra_Disp_Strat);Meta_Disp_Strat_sml_ALL <-list()}
   
   for (disp_looping in 1:dispersal_loops) {
-  
-  Meta_sml <- Meta[,-col_NO_J]
-  M.migra_Disp_Strat_sml <-list() 
-  for (Disp_Strateg in 1:length(unique(Disp_Str))) {
-  M.migra_Disp_Strat_sml[[Disp_Strateg]] <- M.migra_Disp_Strat[[Disp_Strateg]][-col_NO_J,-col_NO_J]
+  if(fraction==2){
+  Dispersal_Strategies <- which(Disp_Strat!=disp_looping)
+  Meta_sml_temp_frac_2<- Meta_sml
+  Meta_sml_temp_frac_2[Dispersal_Strategies,] <- 0
+  Meta_Disp_Strat_sml_ALL[[disp_looping]] <-Meta_sml_temp_frac_2 
   }
+    
+  #for (Disp_Strateg_smll in 1:length(unique(Disp_Strat))) {}
   filter.env_sml <- filter.env[,-col_NO_J]
   temp_Metacom_sml <- temp_Metacom[,-col_NO_J]
   
   # For the shared community
   for (ii in 2:max(Js_fraction)){
     id.j<-which(Js_fraction[-col_NO_J]>=ii)
-    cat("coalescent construction in J: ", ii," de" ,max(Js_fraction),"\n")  
-    if(length(id.fixed)>0)Meta_sml[,id.fixed]<-comm.fixed*(ii-1)      # scale vector of abundances in the fixed community to the abundance of all other communities
+    cat("coalescent construction in J: ", ii," de" ,max(Js_fraction),"\n")
     
     if(fraction==1){
+    if(length(id.fixed)>0){Meta_sml_shared_ALL[,id.fixed]<-comm.fixed*(ii-1)}      # scale vector of abundances in the fixed community to the abundance of all other communities
     Pool.neighbor <- matrix(nrow = length(Meta.pool), ncol =ncol(filter.env),data = 0)
-    for (Disp_Strateg in 1:length(unique(Disp_Str))) {
-    Dispersal_Strategies <- which(Disp_Strat==Disp_Strateg)
-    Pool.neighbor_temp <- (Meta_sml%*%M.migra_Disp_Strat_sml[[Disp_Strateg]])
+    for (Disp_Strateg_frac_1 in 1:length(unique(Disp_Strat))) {
+    Dispersal_Strategies <- which(Disp_Strat==Disp_Strateg_frac_1)
+    Pool.neighbor_temp <- (Meta_sml_shared_ALL%*%M.migra_Disp_Strat[[Disp_Strateg_frac_1]])
     Pool.neighbor[Dispersal_Strategies,] <- Pool.neighbor[Dispersal_Strategies,]+Pool.neighbor_temp[Dispersal_Strategies,]
     }
     Pool.neighbor <- apply(Pool.neighbor,2,m_to_1_Neigh)
-    }# IF fraction is 1
+    Pool.neighbor<-Pool.neighbor*filter.env_sml # IMPORTANT: element by element adjustment of species abundances to local filters
+    Pool.neighbor <- ((Pool.neighbor/max(Pool.neighbor))*(1-tempo_imp))+((temp_Metacom_sml/max(temp_Metacom_sml))*tempo_imp)
     
+    if(length(id.j)>1){
+      new<-apply(Pool.neighbor[,id.j],2,born,dead.by.it = 1, M.pool = Meta.pool, m.pool = m.pool)   # random selection of new individuals from reclutants pool 
+      Meta_sml_shared_ALL[,id.j]<-Meta_sml_shared_ALL[,id.j]+new} else {
+      Meta_sml_shared_ALL[,id.j]<-Meta_sml_shared_ALL[,id.j]+born(n = Pool.neighbor[,id.j],dead.by.it = 1, M.pool = Meta.pool, m.pool = m.pool) 
+      }# upadate communities
+    }# End of fraction 1
+    
+    # For the individual community
     if(fraction==2){
-    Pool.neighbor<-(Meta_sml%*%M.migra_Disp_Strat_sml[[Disp_Strateg]]) # estimates potential reclutants including immigrants for all communities weighted by local abundances
-    }
+    if(length(id.fixed)>0){Meta_Disp_Strat_sml_ALL[[disp_looping]][,id.fixed]<-comm.fixed*(ii-1)}      # scale vector of abundances in the fixed community to the abundance of all other communities
+    Pool.neighbor <- matrix(nrow = length(Meta.pool), ncol =ncol(filter.env),data = 0)
+    Dispersal_Strategies <- which(Disp_Strat==disp_looping)
+    Pool.neighbor_temp <- (Meta_Disp_Strat_sml_ALL[[disp_looping]]%*%M.migra_Disp_Strat[[disp_looping]])
+    Pool.neighbor[Dispersal_Strategies,] <- Pool.neighbor[Dispersal_Strategies,]+Pool.neighbor_temp[Dispersal_Strategies,]# estimates potential reclutants including immigrants for all communities weighted by local abundances
+    
     Pool.neighbor<-Pool.neighbor*filter.env_sml # IMPORTANT: element by element adjustment of species abundances to local filters
     
     Pool.neighbor <- ((Pool.neighbor/max(Pool.neighbor))*(1-tempo_imp))+((temp_Metacom_sml/max(temp_Metacom_sml))*tempo_imp)
 
     if(length(id.j)>1){
-      new<-apply(Pool.neighbor[,id.j],2,born,dead.by.it = 1, M.pool = Meta.pool, m.pool = m.pool)   # random selection of new individuals from reclutants pool 
-      Meta_sml[,id.j]<-Meta_sml[,id.j]+new} else {
-      Meta_sml[,id.j]<-Meta_sml[,id.j]+born(n = Pool.neighbor[,id.j],dead.by.it = 1, M.pool = Meta.pool, m.pool = m.pool) 
-      }                          # upadate communities 
+    new<-apply(Pool.neighbor[Dispersal_Strategies,id.j],2,born,dead.by.it = 1, M.pool = Meta.pool[Dispersal_Strategies], m.pool = m.pool)   # random selection of new individuals from reclutants pool 
+    Meta_Disp_Strat_sml_ALL[[disp_looping]][Dispersal_Strategies,id.j]<-Meta_Disp_Strat_sml_ALL[[disp_looping]][Dispersal_Strategies,id.j]+new} else {
+    Meta_Disp_Strat_sml_ALL[[disp_looping]][Dispersal_Strategies,id.j]<-Meta_Disp_Strat_sml_ALL[[disp_looping]][Dispersal_Strategies,id.j]+born(n = Pool.neighbor[,id.j],dead.by.it = 1, M.pool = Meta.pool, m.pool = m.pool) 
+    }# upadate communities
+    }# End of fraction 2 
   }
+  # LOTTERY NEEDS TO BE CORRECTED ACCORDINGLY !
   if(Lottery==T){  # START LOTTERY ################################################
     col_NO_J <- which(Js_fraction==0)
     if(length(col_NO_J)==0){col_NO_J <- -(1:length(Js_fraction))}
@@ -167,7 +190,7 @@ H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom<-function(Meta.pool, m.pool,
       
     if(fraction==1){
     Pool.neighbor <- matrix(nrow = length(Meta.pool), ncol =ncol(filter.env),data = 0)
-    for (Disp_Strateg in 1:length(unique(Disp_Str))) {
+    for (Disp_Strateg in 1:length(unique(Disp_Strat))) {
     Dispersal_Strategies <- which(Disp_Strat==Disp_Strateg)
     Pool.neighbor_temp <- (Meta_sml%*%M.migra_Disp_Strat_sml[[Disp_Strateg]])
     Pool.neighbor[Dispersal_Strategies,] <- Pool.neighbor[Dispersal_Strategies,]+Pool.neighbor_temp[Dispersal_Strategies,]
@@ -176,7 +199,7 @@ H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom<-function(Meta.pool, m.pool,
     }# IF fraction is 1
     
     if(fraction==2){
-    Pool.neighbor<-(Meta_sml%*%M.migra_Disp_Strat_sml[[Disp_Strateg]]) # estimates potential reclutants including immigrants for all communities weighted by local abundances
+    Pool.neighbor<-(Meta_sml%*%M.migra_Disp_Strat_sml[[disp_looping]]) # estimates potential reclutants including immigrants for all communities weighted by local abundances
     }
     
     Pool.neighbor<-Pool.neighbor*filter.env_sml # IMPORTANT: element by element adjustment of species abundances to local filters
@@ -190,15 +213,15 @@ H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom<-function(Meta.pool, m.pool,
                                                  prob = (1-m.pool)*(Pool.neighbor[,id.comm]/sum(Pool.neighbor[,id.comm]))+m.pool*Meta.pool) # random selection of reclutants from neighbours, local or external pool
       }
     }
-    }
+  }
   
-  if(fraction==1){Meta_sml_shared <- Meta_sml}
-  if(fraction==2){Meta_sml_ind_list[[disp_looping]]<- Meta_sml}
+  # if(fraction==1){Meta_sml_shared_ALL <- Meta_sml_shared_ALL+Meta_sml_shared}
+  # if(fraction==2){Meta_sml_ind_list_ALL[[disp_looping]]<- Meta_sml}
   }# Dispersal loops
     
   }# Fractions
   
-  Meta_sml <- Meta_sml_shared+Meta_sml_ind_list[[1]]+Meta_sml_ind_list[[2]]+Meta_sml_ind_list[[3]]
+  Meta_sml <- Meta_sml_shared_ALL+Meta_Disp_Strat_sml_ALL[[1]]+Meta_Disp_Strat_sml_ALL[[2]]+Meta_Disp_Strat_sml_ALL[[3]]
   Meta[,-col_NO_J] <- Meta_sml
   
   MetaCom_t <- Meta
@@ -246,17 +269,17 @@ Sum_Com_Toll<- function(x_matr,Toller){sum((10.1-(Toller*10))[which(x_matr>0)])}
 # m.max: migration between connected cells
 # D50 is the distance at which migration decay yo half m.max
 
-H2020_migration.matrix.kernel.all<-function(M.dist, m.pool, D50,m.max, 
+H2020_migration.matrix.kernel.all<-function(M.distance, m.pool, D50,m.max, 
                                             id.fixed, D50.fixed, m.max.fixed){
-  diag(M.dist)=NA
-  M.dist = M.dist-min(M.dist, na.rm=T) # min distance is the distance between neighbour cells. 
+  diag(M.distance)=NA
+  M.distance = M.distance-min(M.distance, na.rm=T) # min distance is the distance between neighbour cells. 
                     # connected cells has distance zero and migration m.max
   b = -log(m.max*0.5)/D50         # b is estimated | m(D50)
-  M.migra = m.max*exp(-b*M.dist) 
+  M.migra = m.max*exp(-b*M.distance) 
   
   if(length(id.fixed)>0){
     b.fixed= -log(0.5)/D50.fixed 
-    M.migra[id.fixed,]<- m.max.fixed*exp(-b.fixed*M.dist[id.fixed,]) # migration from outlet
+    M.migra[id.fixed,]<- m.max.fixed*exp(-b.fixed*M.distance[id.fixed,]) # migration from outlet
   }                                                          # M.migra is the potential migration between communities, 
   
   diag(M.migra)<-1                                            # selfrecruitment is considered as 1=m.intra community
