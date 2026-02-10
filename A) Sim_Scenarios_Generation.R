@@ -420,15 +420,15 @@ for (pack_scenario in 1:ceiling(length(output_to_simulate)/15)) {
   Scenario <- cbind(Beg,End)
   Flow_DB_toSTcon <- Flow_DB_toSTcon_Sc[Beg:End]
   # Charge drifters 
-  load(paste("C:/Users/David CM/Dropbox/DAVID DOC/LLAM al DIA/1. FEHM coses al DIA/7. DRY-GUADALMED/SLURM_Model_Dry_Guadalmed/",
+  load(paste("/home/dcunille/Dropbox/DAVID DOC/LLAM al DIA/1. FEHM coses al DIA/7. DRY-GUADALMED/SLURM_Model_Dry_Guadalmed/",
              paste("Sc_",Beg,"_",End, sep = ""),"/Riv_Drift_STcon.RData",sep=""))
   Riv_Drift_Tot[Beg:End] <- Riv_Drift$STconmat[1:15]
   # Charge swimmers
-  load(paste("C:/Users/David CM/Dropbox/DAVID DOC/LLAM al DIA/1. FEHM coses al DIA/7. DRY-GUADALMED/SLURM_Model_Dry_Guadalmed/",
+  load(paste("/home/dcunille/Dropbox/DAVID DOC/LLAM al DIA/1. FEHM coses al DIA/7. DRY-GUADALMED/SLURM_Model_Dry_Guadalmed/",
              paste("Sc_",Beg,"_",End, sep = ""),"/Riv_Swim_STcon.RData",sep=""))
   Riv_Swim_Tot[Beg:End] <- Riv_Swim$STconmat[1:15]
   # Charge flyiers
-  load(paste("C:/Users/David CM/Dropbox/DAVID DOC/LLAM al DIA/1. FEHM coses al DIA/7. DRY-GUADALMED/SLURM_Model_Dry_Guadalmed/",
+  load(paste("/home/dcunille/Dropbox/DAVID DOC/LLAM al DIA/1. FEHM coses al DIA/7. DRY-GUADALMED/SLURM_Model_Dry_Guadalmed/",
              paste("Sc_",Beg,"_",End, sep = ""),"/Riv_AerAct_STcon.RData",sep=""))
   Riv_AerAct_Tot[Beg:End] <- Riv_AerAct$STconmat[1:15]
 }
@@ -472,12 +472,12 @@ summary(as.vector(Scen_Drift_STconmat[[3]]))
 
 #________________________###
 #________________________###
-# 4. STconmat calculation  ####
+# 4. Simulation running  ####
 #________________________###
 #________________________###
 
 # We charge the function to run coalescent models
-source("H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R")
+source("functions/H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R")
 
 ###__________________________________
 ### WE BEGUN TO built all the data that we need to run the simulation

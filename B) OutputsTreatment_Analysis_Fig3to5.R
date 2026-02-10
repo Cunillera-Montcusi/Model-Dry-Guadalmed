@@ -1,7 +1,7 @@
 
 library(tidyverse);library(viridis)
-load("RData_outputs/All_Results_scenarios.RData")
-
+load("RData_outputs/Sens_Test_Results_scenarios_Modif_Size.RData")
+Res_nodes_DaFr <- Sens_Test_nodes_DaFr
 # Preparing the data to be ploted
 colnames(Res_nodes_DaFr)
 Data_To_Plot <- Res_nodes_DaFr %>%
@@ -9,7 +9,7 @@ Data_To_Plot <- Res_nodes_DaFr %>%
     str_detect(Pollution ,"YES_Poll") ~ "Polluted",
     str_detect(Pollution ,"Non_Poll") ~ "Unpolluted")) %>%
   mutate(Pollution=factor(Pollution,levels=c("Unpolluted","Polluted"))) %>% 
-  filter(Disp==0.15) %>% 
+  filter(Disp==2) %>% 
   mutate(Dry_ext=as.numeric(Dry_ext),Dry_patt=as.numeric(Dry_patt),
          Pollut_ext=as.numeric(Pollut_ext)) %>% 
   group_by(Dry_ext, Dry_patt, Pollut_ext) %>% 
@@ -87,11 +87,28 @@ Data_To_Plot %>%
   geom_smooth(method="lm",se=F)+
   scale_color_viridis(option="E",discrete = T)+
   scale_fill_viridis(option="E",discrete = T)+
+  scale_y_continuous(limits = c(0,470))+
   labs(color="Drying intensity",fill="Drying intensity",x="Dispersal resistance",y="IBMWP")+
   facet_wrap(Pollut_ext~Dry_ext, ncol=3,strip.position = "right",axis.labels = "all",axes = "all")+
   theme_classic()+
   theme(strip.background = element_blank(),strip.text.x = element_blank(),
         legend.position = "bottom")
+dev.off()
+
+png(filename = "Figures/Figure_3_All_IBMWP.png",width = 2800,height = 3000,units = "px",res =300)
+Data_To_Plot %>% 
+  ggplot(aes(x=Sc_STcon, y=IBMWP,
+             colour=as.factor(1-Dry_patt),fill=as.factor(1-Dry_patt)))+
+  geom_smooth(method="lm",se=F)+
+  scale_color_viridis(option="E",discrete = T)+
+  scale_fill_viridis(option="E",discrete = T)+
+  labs(color="Drying intensity",fill="Drying intensity",x="Dispersal resistance",y="S")+
+  facet_wrap(Pollut_ext~Dry_ext, ncol=9)+
+  theme_classic()+
+  theme(strip.background = element_blank(),strip.text.x = element_blank(),
+        legend.position = "bottom",
+        panel.grid.major.y = element_line(colour="grey"),
+        axis.text.x = element_text(size=8))
 dev.off()
 
 png(filename = "Figures/Figure_3_All_S.png",width = 2800,height = 3000,units = "px",res =300)
@@ -209,15 +226,14 @@ dev.off()
 
 
 # Figure 3 version Unimpacted vs Impacted ####
-
 Poll_plot <- Data_To_Plot %>% 
-  filter(Pollut_ext%in%c(0.01,0.5,0.75), 
-         Dry_ext%in%c(0.25,0.5,0.75)) %>%
+  filter(Pollut_ext%in%c(0.01,0.5,0.9), 
+         Dry_ext%in%c(0.25,0.5,0.9)) %>%
   filter(Pollution=="Polluted")
 
 UnPoll_plot <- Data_To_Plot %>% 
-  filter(Pollut_ext%in%c(0.01,0.5,0.75), 
-         Dry_ext%in%c(0.25,0.5,0.75)) %>%
+  filter(Pollut_ext%in%c(0.01,0.5,0.9), 
+         Dry_ext%in%c(0.25,0.5,0.9)) %>%
   filter(Pollution=="Unpolluted")
 
 colnames(Data_To_Plot) 
@@ -259,8 +275,8 @@ png(filename = "Figures/Figure_4.png",width = 3000,height = 1000,units = "px",re
 Data_To_Plot %>% 
   group_by(Dry_ext, Dry_patt, Pollut_ext,Pollution) %>% 
   summarise(M_IBMWP=mean(IBMWP)) %>%
-  mutate(Ref_IBMWP=as.numeric(Ref_Performance[,2])) %>%
-  #left_join(Ref_Performance, by="Dry_ext") %>%
+  #mutate(Ref_IBMWP=as.numeric(Ref_Performance[,2])) %>%
+  left_join(Ref_Performance, by="Dry_ext") %>%
   mutate(Diff_Ref=Ref_IBMWP-M_IBMWP) %>% 
   select(-M_IBMWP) %>% 
   pivot_wider(names_from = Pollution,values_from = c(Diff_Ref)) %>%
